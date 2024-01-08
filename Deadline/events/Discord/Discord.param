@@ -1,0 +1,8 @@
+[BotKey]
+Type=string
+Category=Options
+CategoryOrder=0
+CategoryIndex=0
+Label=Key
+Default=
+Description=<html><head/><body><p>Api Key for Discord bot.</p></body></html>
