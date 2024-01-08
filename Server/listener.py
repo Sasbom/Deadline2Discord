@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from urllib import parse
 import sys
 
@@ -16,7 +16,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
 def main(argc: int, argv: list[str]) -> int:
-    server = HTTPServer((IP,1337),RequestHandler)
+    server = ThreadingHTTPServer((IP,1337),RequestHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

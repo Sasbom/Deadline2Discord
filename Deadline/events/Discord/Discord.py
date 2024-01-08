@@ -53,7 +53,7 @@ class DiscordEventListener(DeadlineEventListener):
     
     def OnJobFinished(self, job: Job):
         self.LogStdout("Discord event plugin noticed that a job has finished")
-        log_to_server("Discord event plugin noticed that a job has finished")
+        log_to_server(f"Discord event plugin noticed that a task has finished, {job.JobStatus}")
         pass
 
     def OnJobFailed(self, job: Job):
