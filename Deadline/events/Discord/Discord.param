@@ -1,8 +1,15 @@
+[State]
+Type=Enum
+Items=Global Enabled;Opt-In;Disabled
+Label=State
+Default=Global Enabled
+Description=How this event plug-in should respond to events. If Global, all jobs and Workers will trigger the events for this plugin. If Opt-In, jobs and Workers can choose to trigger the events for this plugin. If Disabled, no events are triggered for this plugin.
+
 [BotKey]
 Type=string
 Category=Options
 CategoryOrder=0
-CategoryIndex=0
+CategoryIndex=1
 Label=Key
-Default=
+Default=0000
 Description=<html><head/><body><p>Api Key for Discord bot.</p></body></html>
