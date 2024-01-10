@@ -1,0 +1,3 @@
+C:/SomePath
+
+edit, then change to destination.txt

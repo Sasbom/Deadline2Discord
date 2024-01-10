@@ -37,13 +37,14 @@ class DiscordEventListener(DeadlineEventListener):
         self.OnJobSubmittedCallback += self.OnJobSubmitted
         # self.OnJobStartedCallback += self.OnJobStarted
         self.OnJobFinishedCallback += self.OnJobFinished
-        # self.OnJobRequeuedCallback += self.OnJobRequeued
+        self.OnJobRequeuedCallback += self.OnJobRequeued
         self.OnJobFailedCallback += self.OnJobFailed
 
 
     def cleanup(self):
         del self.OnJobSubmittedCallback
         del self.OnJobFinishedCallback
+        del self.OnJobRequeuedCallback
         del self.OnJobFailedCallback
 
     def OnJobSubmitted(self, job: Job):
@@ -53,7 +54,12 @@ class DiscordEventListener(DeadlineEventListener):
     
     def OnJobFinished(self, job: Job):
         self.LogStdout("Discord event plugin noticed that a job has finished")
-        log_to_server(f"Discord event plugin noticed that a task has finished, {job.JobStatus}")
+        log_to_server(f"Discord event plugin noticed that a job has finished, {job.JobStatus}, {job.JobName}")
+        pass
+
+    def OnJobRequeued(self, job: Job):
+        self.LogStdout("Discord event plugin noticed that a job has been requeued")
+        log_to_server(f"Discord event plugin noticed that a job has been requeued, {job.JobName}")
         pass
 
     def OnJobFailed(self, job: Job):
