@@ -11,8 +11,9 @@ tree = app_commands.CommandTree(client)
     guild=discord.Object(id=858640120826560512),
     description = "Check connection to bot."
 )
-async def ping_command(interaction):
-    await interaction.response.send_message("Pong!")
+async def ping_command(interaction: discord.Interaction, argument: str):
+    await interaction.response.send_message(f"Pong!: {argument}")
+
 
 @client.event
 async def on_ready():
