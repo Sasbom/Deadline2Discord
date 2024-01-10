@@ -1,15 +1,18 @@
-import discord
-from discord import app_commands
-import asyncio
-
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from urllib import parse
 import sys
 import json
 import socket
 import threading
+import asyncio
+
+import discord
+from discord import app_commands
+from tinydb import TinyDB, Query
 
 IP = socket.gethostbyname(socket.gethostname())
+
+DB = TinyDB(f"{__file__}/../register.db")
 
 class MessageCache:
     def __init__(self):
@@ -47,15 +50,29 @@ class RequestHandler(BaseHTTPRequestHandler):
         length = int(self.headers["Content-Length"])
         data = self.rfile.read(length).decode()
         data_dict = parse.parse_qs(data)
-        print(f"Recieved message: {data_dict['message'][0]}")
 
         self.send_response(200)
         
         self.send_header("Content-type","application/json")
         self.end_headers()
-
-        self.wfile.write(json.dumps({"message" : f"Message recieved: {data_dict['message'][0]}"}).encode())
-        MESSAGES.post_message(data_dict['message'][0])
+        
+        if "message" in data_dict.keys():
+            print(f"Recieved message: {data_dict['message'][0]}")
+            self.wfile.write(json.dumps({"message" : f"Message recieved: {data_dict['message'][0]}"}).encode())
+            MESSAGES.post_message(data_dict['message'][0])
+        else:
+            msg_color = discord.Colour.from_rgb(255,0,0) if data_dict["status"] == "Failed" else discord.Colour.from_rgb(0,255,0)
+            embed = discord.Embed(title="Job Finished!",color=msg_color)
+            embed.add_field(name=":abcd: Name: ", value=data_dict["name"],inline=False)
+            embed.add_field(name=":ocean: Pool: ", value=data_dict["pool"],inline=False)
+            embed.add_field(name=":classical_building: Department: ", value=data_dict["Department"],inline=False)
+            embed.add_field(name=":1234: Tasks: ", value=data_dict["tasks"])
+            embed.add_field(name=":pray: Status: ", value=data_dict["status"])
+            if name := data_dict["ping"]:
+                user = Query()
+                id = DB.get(user.name == name)
+                if id:
+                    embed.add_field(name=":speaking_head: User: ", value=f"<@{id}>",inline=False)
 
 DEADLINE_CATCHER = ThreadingHTTPServer((IP,1337),RequestHandler)
 
@@ -91,6 +108,35 @@ tree = app_commands.CommandTree(client)
 async def ping_command(interaction: discord.Interaction, argument: str):
     await interaction.response.send_message(f"Pong!: {argument}")
 
+@tree.command(
+    name = "register",
+    guild=discord.Object(id=858640120826560512),
+    description = "Register your handle (allows you to be pinged!)"
+)
+async def register_command(interaction: discord.Interaction):
+    name = interaction.user.name
+    user = Query()
+    id = DB.get(user.name == name)
+    if id:
+        await interaction.response.send_message(f"Your username has already been registered! :star:",ephemeral=True)
+    else:
+        DB.insert({"name": f"{name}", "id" : f"{interaction.user.id}"})
+        await interaction.response.send_message(f"Your username has succesfully been registered! :white_check_mark:",ephemeral=True)
+
+@tree.command(
+    name = "deregister",
+    guild=discord.Object(id=858640120826560512),
+    description = "Deregister your handle (no more pings!)"
+)
+async def deregister_command(interaction: discord.Interaction):
+    name = interaction.user.name
+    user = Query()
+    id = DB.get(user.name == name)
+    if id:
+        DB.remove(user.name == name)
+        await interaction.response.send_message(f"Your username has been deregistered! :fire:",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Your username doesn't exist in the registry. :nail_care:",ephemeral=True)
 
 @client.event
 async def on_ready():
