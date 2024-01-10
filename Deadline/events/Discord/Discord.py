@@ -47,39 +47,43 @@ class DiscordEventListener(DeadlineEventListener):
         del self.OnJobFailedCallback
 
     def OnJobSubmitted(self, job: Job):
-        self._ip = self.GetConfigEntry("ServerIP")
+        self._ip = self.get_ip()
         
         self.LogStdout("Discord event plugin noticed that a job has been submitted")
         log_to_server(f"Discord event plugin noticed that a job has been submitted",self._ip)
         pass
 
     def OnJobStarted(self, job: Job):
-        self._ip = self.GetConfigEntry("ServerIP")
+        self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job has started")
         log_to_server(f"Discord event plugin noticed that a job has started",self._ip)
         pass
     
     def OnJobFinished(self, job: Job):
-        self._ip = self.GetConfigEntry("ServerIP")
+        self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job has finished")
         log_to_server(f"Discord event plugin noticed that a job has finished, {job.JobStatus}, {job.JobName}",self._ip)
         pass
 
     def OnJobRequeued(self, job: Job):
-        self._ip = self.GetConfigEntry("ServerIP")
+        self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job has been requeued")
         log_to_server(f"Discord event plugin noticed that a job has been requeued, {job.JobName}",self._ip)
         pass
 
     def OnJobFailed(self, job: Job):
-        self._ip = self.GetConfigEntry("ServerIP")
+        self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job failed...")
         log_to_server("Discord event plugin noticed that a job failed...",self._ip)
         pass
+
+    def get_ip(self):
+        name = self.GetConfigEntry("ServerName")
+        return socket.gethostbyname(str(name))
 
 def GetDeadlineEventListener():
     return DiscordEventListener()

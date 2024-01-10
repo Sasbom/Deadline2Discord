@@ -17,11 +17,11 @@ Label=Key
 Default=0000
 Description=<html><head/><body><p>Api Key for Discord bot.</p></body></html>
 
-[ServerIP]
+[ServerName]
 Type=string
 Category=Options
 CategoryOrder=0
 CategoryIndex=2
-Label=ServerIP
-Default=0.0.0.0
-Description=<html><head/><body><p>Server IP to send shit to.</p></body></html>
+Label=ServerName
+Default=AB69
+Description=<html><head/><body><p>Server Hostname to send shit to.</p></body></html>
