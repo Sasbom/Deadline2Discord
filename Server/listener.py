@@ -2,8 +2,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from urllib import parse
 import sys
 import json
+import socket
 
-IP = "10.2.40.81"
+IP = socket.gethostbyname(socket.gethostname())
 
 class RequestHandler(BaseHTTPRequestHandler):
     

@@ -8,16 +8,15 @@
 # Don't question it. They'll come get you.
 
 import sys
+import socket
 from urllib import request, parse
-from Deadline.Jobs import Job
 
+from Deadline.Jobs import Job
 from Deadline.Events import DeadlineEventListener
 from Deadline.Scripting import ClientUtils
 
-IP = "10.2.40.81"
-
-def log_to_server(message):
-    _adress = f"http://{IP}:1337"
+def log_to_server(message, ip):
+    _adress = f"http://{ip}:1337"
     _dict = {"message" : message}
     _data = parse.urlencode(_dict).encode()
     _request = request.Request(_adress, data=_data, method="POST")
@@ -35,36 +34,51 @@ class DiscordEventListener(DeadlineEventListener):
         # The bot needs to report only on finished jobs and on failed jobs.
 
         self.OnJobSubmittedCallback += self.OnJobSubmitted
-        # self.OnJobStartedCallback += self.OnJobStarted
+        self.OnJobStartedCallback += self.OnJobStarted
         self.OnJobFinishedCallback += self.OnJobFinished
         self.OnJobRequeuedCallback += self.OnJobRequeued
         self.OnJobFailedCallback += self.OnJobFailed
 
-
     def cleanup(self):
+        del self.OnJobStartedCallback
         del self.OnJobSubmittedCallback
         del self.OnJobFinishedCallback
         del self.OnJobRequeuedCallback
         del self.OnJobFailedCallback
 
     def OnJobSubmitted(self, job: Job):
+        self._ip = self.GetConfigEntry("ServerIP")
+        
+        self.LogStdout("Discord event plugin noticed that a job has been submitted")
+        log_to_server(f"Discord event plugin noticed that a job has been submitted",self._ip)
+        pass
+
+    def OnJobStarted(self, job: Job):
+        self._ip = self.GetConfigEntry("ServerIP")
+
         self.LogStdout("Discord event plugin noticed that a job has started")
-        log_to_server("Discord event plugin noticed that a job has started")
+        log_to_server(f"Discord event plugin noticed that a job has started",self._ip)
         pass
     
     def OnJobFinished(self, job: Job):
+        self._ip = self.GetConfigEntry("ServerIP")
+
         self.LogStdout("Discord event plugin noticed that a job has finished")
-        log_to_server(f"Discord event plugin noticed that a job has finished, {job.JobStatus}, {job.JobName}")
+        log_to_server(f"Discord event plugin noticed that a job has finished, {job.JobStatus}, {job.JobName}",self._ip)
         pass
 
     def OnJobRequeued(self, job: Job):
+        self._ip = self.GetConfigEntry("ServerIP")
+
         self.LogStdout("Discord event plugin noticed that a job has been requeued")
-        log_to_server(f"Discord event plugin noticed that a job has been requeued, {job.JobName}")
+        log_to_server(f"Discord event plugin noticed that a job has been requeued, {job.JobName}",self._ip)
         pass
 
     def OnJobFailed(self, job: Job):
+        self._ip = self.GetConfigEntry("ServerIP")
+
         self.LogStdout("Discord event plugin noticed that a job failed...")
-        log_to_server("Discord event plugin noticed that a job failed...")
+        log_to_server("Discord event plugin noticed that a job failed...",self._ip)
         pass
 
 def GetDeadlineEventListener():
