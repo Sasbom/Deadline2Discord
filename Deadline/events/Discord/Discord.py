@@ -62,7 +62,7 @@ class DiscordEventListener(DeadlineEventListener):
     
     def OnJobFinished(self, job: Job):
         self._ip = self.get_ip()
-
+        job.
         self.LogStdout("Discord event plugin noticed that a job has finished")
         log_to_server(f"Discord event plugin noticed that a job has finished, {job.JobStatus}, {job.JobName}",self._ip)
         pass
