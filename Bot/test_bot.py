@@ -66,13 +66,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             embed.add_field(name=":abcd: Name: ", value=data_dict["name"],inline=False)
             embed.add_field(name=":ocean: Pool: ", value=data_dict["pool"],inline=False)
             embed.add_field(name=":classical_building: Department: ", value=data_dict["Department"],inline=False)
-            embed.add_field(name=":1234: Tasks: ", value=data_dict["tasks"])
             embed.add_field(name=":pray: Status: ", value=data_dict["status"])
+            embed.add_field(name=":1234: Tasks: ", value=data_dict["tasks"])
             if name := data_dict["ping"]:
                 user = Query()
                 id = DB.get(user.name == name)
                 if id:
                     embed.add_field(name=":speaking_head: User: ", value=f"<@{id}>",inline=False)
+
+            MESSAGES.post_message(embed)
 
 DEADLINE_CATCHER = ThreadingHTTPServer((IP,1337),RequestHandler)
 
