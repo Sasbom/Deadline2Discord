@@ -61,20 +61,25 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"message" : f"Message recieved: {data_dict['message'][0]}"}).encode())
             MESSAGES.post_message(data_dict['message'][0])
         else:
+            data_dict = {k : v[0] for k, v in data_dict.items()} # get first of all.
             msg_color = discord.Colour.from_rgb(255,0,0) if data_dict["status"] == "Failed" else discord.Colour.from_rgb(0,255,0)
             embed = discord.Embed(title="Job Finished!",color=msg_color)
             embed.add_field(name=":abcd: Name: ", value=data_dict["name"],inline=False)
             embed.add_field(name=":ocean: Pool: ", value=data_dict["pool"],inline=False)
-            embed.add_field(name=":classical_building: Department: ", value=data_dict["Department"],inline=False)
+            embed.add_field(name=":classical_building: Department: ", value=data_dict["department"],inline=False)
             embed.add_field(name=":pray: Status: ", value=data_dict["status"])
             embed.add_field(name=":1234: Tasks: ", value=data_dict["tasks"])
-            if name := data_dict["ping"]:
-                user = Query()
-                id = DB.get(user.name == name)
-                if id:
-                    embed.add_field(name=":speaking_head: User: ", value=f"<@{id}>",inline=False)
-
+            id = None
+            if "ping" in data_dict.keys():
+                if name := data_dict["ping"]:
+                    user = Query()
+                    id = DB.get(user.name == name)
+                    if id:
+                        embed.add_field(name=":speaking_head: User: ", value=f"<@{id['id']}>",inline=False)
+                        MESSAGES.post_message(f":cooking: Render's ready! <@{id['id']}>")
+            
             MESSAGES.post_message(embed)
+                
 
 DEADLINE_CATCHER = ThreadingHTTPServer((IP,1337),RequestHandler)
 
