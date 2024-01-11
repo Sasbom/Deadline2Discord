@@ -10,6 +10,7 @@
 import sys
 import socket
 from urllib import request, parse
+import os
 
 from Deadline.Jobs import Job
 from Deadline.Events import DeadlineEventListener
@@ -104,8 +105,22 @@ def compose_job_dict(job: Job):
         "department" : job.JobDepartment,
         "tasks" : str(job.JobTaskCount),
         "status" : job.JobStatus,
-        "ping" : job.GetJobExtraInfoKeyValueWithDefault("JobPing","")
+        "ping" : job.GetJobExtraInfoKeyValueWithDefault("JobPing",""),
+        "thumbnail" : get_thumbnail(job)
     }
+
+def get_imagepaths(job: Job):
+    dir = job.JobOutputDirectories[0]
+    out = []
+    for dpath, dname, fnames in os.walk(dir):
+        out.extend([os.path.join(dir,f) for f in fnames])
+        break
+
+    return out
+
+def get_thumbnail(job: Job):
+    paths = get_imagepaths(job)
+    return paths[int(len(paths)/2)]
 
 def compose_poolstring(pool: str, secondary_pool: str = None):
     if secondary_pool:
