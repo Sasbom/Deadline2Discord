@@ -63,7 +63,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             data_dict = {k : v[0] for k, v in data_dict.items()} # get first of all.
             msg_color = discord.Colour.from_rgb(255,0,0) if data_dict["status"] == "Failed" else discord.Colour.from_rgb(0,255,0)
-            embed = discord.Embed(title="Job Finished!",color=msg_color)
+            embed_title = "Job Failed! :fire::fire::fire:" if data_dict["status"] == "Failed" else "Job Finished!"
+            embed = discord.Embed(title=embed_title,color=msg_color)
             embed.add_field(name=":abcd: Name: ", value=data_dict["name"],inline=False)
             embed.add_field(name=":ocean: Pool: ", value=data_dict["pool"],inline=False)
             embed.add_field(name=":classical_building: Department: ", value=data_dict["department"],inline=False)
@@ -75,8 +76,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     user = Query()
                     id = DB.get(user.name == name)
                     if id:
+                        emote = ":warning:" if data_dict["status"] == "Failed" else ":cooking:"
                         embed.add_field(name=":speaking_head: User: ", value=f"<@{id['id']}>",inline=False)
-                        MESSAGES.post_message(f":cooking: Render's ready! <@{id['id']}>")
+                        MESSAGES.post_message(f"{emote} Render {data_dict['status']}! <@{id['id']}>")
             
             MESSAGES.post_message(embed)
                 

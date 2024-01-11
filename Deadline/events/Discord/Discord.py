@@ -89,7 +89,8 @@ class DiscordEventListener(DeadlineEventListener):
         self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job failed...")
-        log_to_server(f"Discord event plugin noticed that `{job.JobName}` failed... :fire:",self._ip)
+        # log_to_server(f"Discord event plugin noticed that `{job.JobName}` failed... :fire:",self._ip)
+        log_jobinfo_to_server(job,self._ip)
         pass
 
     def get_ip(self):
