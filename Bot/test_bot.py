@@ -5,6 +5,7 @@ import json
 import socket
 import threading
 import asyncio
+import time
 
 import discord
 from discord import app_commands
@@ -13,6 +14,9 @@ from tinydb import TinyDB, Query
 IP = socket.gethostbyname(socket.gethostname())
 
 DB = TinyDB(f"{__file__}/../register.db")
+
+def get_timestamp_now() -> str:
+    return f"<t:{int(time.time())}:f>"
 
 class MessageCache:
 
@@ -40,7 +44,11 @@ class MessageCache:
             if self._file is not None:
                 kwargs.update({"file" : self._file})
             return args, kwargs
-
+        
+        def then(self, followup):
+            if isinstance(followup,MessageCache.MessageContent):
+                self._followup = followup
+    
     def __init__(self):
         self._messages: list[MessageCache.MessageContent] = []
 
@@ -84,22 +92,36 @@ def compose_resultembed(data_dict : dict[str,str]) -> tuple[discord.Embed, str, 
     
     embed = discord.Embed(title=embed_title,color=msg_color,description=embed_description)
     
-    embed.add_field(name=":abcd: Name: ", value=data_dict["name"],inline=False)
-    embed.add_field(name=":ocean: Pool: ", value=data_dict["pool"],inline=False)
+    embed.add_field(name=":abcd: Name: ", value=data_dict["name"])
+    embed.add_field(name=":ocean: Pool: ", value=data_dict["pool"])
+
+    if "department" not in data_dict.keys():
+        data_dict["department"] = "[no department]"
+    
     embed.add_field(name=":classical_building: Department: ", value=data_dict["department"],inline=False)
     embed.add_field(name=":pray: Status: ", value=data_dict["status"])
     embed.add_field(name=":1234: Tasks: ", value=data_dict["tasks"])
+    embed.add_field(name=":calendar: Time finished:", value = get_timestamp_now())
     
     user_id = None
     tag_message = None
     if "ping" in data_dict.keys():
-        if name := data_dict["ping"]:
+        if names := data_dict["ping"]:
             user = Query()
-            user_id = DB.get(user.name == name)
-            if user_id:
+            
+            # set comprehension for unique names
+            name_list = {n.strip() for n in names.split(",")}
+            user_ids = []
+            for name in name_list:
+                if user_id := DB.get(user.name == name):
+                    user_ids.append(user_id)
+                
+            if user_ids:
+                users = ", ".join(f"<@{user_id['id']}>" for user_id in user_ids)
                 emote = ":warning:" if data_dict["status"] == "Failed" else ":cooking:"
-                embed.add_field(name=":speaking_head: User: ", value=f"<@{user_id['id']}>",inline=False)
-                tag_message = f"{emote} Render {data_dict['status']}! <@{user_id['id']}>"
+                embed.add_field(name=":speaking_head: User(s): ", value=users,inline=False)
+                tag_message = f"{emote} Render {data_dict['status']}! {users}"
+
 
     file = None
     filename = None
@@ -132,26 +154,32 @@ class RequestHandler(BaseHTTPRequestHandler):
         if "message" in data_dict.keys():
             print(f"Recieved message: {data_dict['message'][0]}")
             self.wfile.write(json.dumps({"message" : f"Message recieved: {data_dict['message'][0]}"}).encode())
-            MESSAGES.post_message(data_dict['message'][0])
+            MESSAGES.post_message(f"{data_dict['message'][0]} - {get_timestamp_now()}")
         else:
             data_dict = {k : v[0] for k, v in data_dict.items()} # get first of all.
-            embed, tag_msg, file, filename = compose_resultembed(data_dict=data_dict)
+            embed, tag_txt, file, filename = compose_resultembed(data_dict=data_dict)
+            
+            embed_msg = tag_msg = pic_msg = label_msg = None
+            
+            embed_msg = MESSAGES.create_message(embed)
             
             if file:
                 pic_msg = MESSAGES.create_message(file)
                 label_msg = MESSAGES.create_message(f":frame_photo: `{filename}`")
-                pic_msg._followup=label_msg
-                MESSAGES.post_message(pic_msg)
             
-            MESSAGES.post_message(embed)
-            
-            if tag_msg:
-                MESSAGES.post_message(tag_msg)
+            if tag_txt:
+                tag_msg = MESSAGES.create_message(tag_txt)
                 
+            order = (tag_msg, pic_msg, label_msg)
 
-            
+            last_msg = embed_msg
+            for m in order:
+                if m is not None:
+                    last_msg.then(m)
+                    last_msg = m
 
-            
+            MESSAGES.post_message(embed_msg)
+
 
 DEADLINE_CATCHER = ThreadingHTTPServer((IP,1337),RequestHandler)
 
