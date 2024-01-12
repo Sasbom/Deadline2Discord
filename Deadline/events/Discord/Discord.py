@@ -16,9 +16,11 @@ from Deadline.Jobs import Job
 from Deadline.Events import DeadlineEventListener
 from Deadline.Scripting import ClientUtils
 
-def log_to_server(message, ip):
+def log_to_server(message, ip, extra_info = None):
     _adress = f"http://{ip}:1337"
     _dict = {"message" : message}
+    if extra_info:
+        _dict.update(extra_info)
     _data = parse.urlencode(_dict).encode()
     _request = request.Request(_adress, data=_data, method="POST")
     try:
@@ -62,14 +64,14 @@ class DiscordEventListener(DeadlineEventListener):
         self._ip = self.get_ip()
         
         self.LogStdout("Discord event plugin noticed that a job has been submitted")
-        log_to_server(f"A job, `{job.JobName}`, has been submitted!",self._ip)
+        log_to_server(f"A job, `{job.JobName}`, has been submitted!",self._ip, {"id" : job.JobId, "name" : job.JobName, "owner": job.GetJobExtraInfoKeyValueWithDefault("JobPing","everyone")})
         pass
 
     def OnJobStarted(self, job: Job):
         self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job has started")
-        log_to_server(f"A job, `{job.JobName}`, has started",self._ip)
+        log_to_server(f"A job, `{job.JobName}`, has started",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": job.GetJobExtraInfoKeyValueWithDefault("JobPing","everyone")})
         pass
     
     def OnJobFinished(self, job: Job):
@@ -83,7 +85,7 @@ class DiscordEventListener(DeadlineEventListener):
         self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job has been requeued")
-        log_to_server(f"Deadline noticed that `{job.JobName}` has been requeued",self._ip)
+        log_to_server(f"Deadline noticed that `{job.JobName}` has been requeued",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": job.GetJobExtraInfoKeyValueWithDefault("JobPing","everyone")})
         pass
 
     def OnJobFailed(self, job: Job):
@@ -105,8 +107,9 @@ def compose_job_dict(job: Job):
         "department" : job.JobDepartment,
         "tasks" : str(job.JobTaskCount),
         "status" : job.JobStatus,
-        "ping" : job.GetJobExtraInfoKeyValueWithDefault("JobPing",""),
-        "thumbnail" : get_thumbnail(job)
+        "id" : job.JobId,
+        "thumbnail" : get_thumbnail(job),
+        "ping" : job.GetJobExtraInfoKeyValueWithDefault("JobPing","")
     }
 
 def get_imagepaths(job: Job):

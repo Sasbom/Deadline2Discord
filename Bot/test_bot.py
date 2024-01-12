@@ -9,7 +9,13 @@ import time
 
 import discord
 from discord import app_commands
+from discord.ext import commands
 from tinydb import TinyDB, Query
+
+from Deadline.DeadlineConnect import DeadlineCon
+
+# Establish connection with deadline server
+CON = DeadlineCon(socket.gethostname(),8081)
 
 IP = socket.gethostbyname(socket.gethostname())
 
@@ -17,6 +23,10 @@ DB = TinyDB(f"{__file__}/../register.db")
 
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
+
+def parse_deadlinetime(timestr: str) -> str:
+    h, m, s = (int(round(float(t))) for t in timestr.split(":"))
+    return f"{h:>2} hr, {m:>2} min, {s:>2} sec."
 
 class MessageCache:
 
@@ -154,7 +164,19 @@ class RequestHandler(BaseHTTPRequestHandler):
         if "message" in data_dict.keys():
             print(f"Recieved message: {data_dict['message'][0]}")
             self.wfile.write(json.dumps({"message" : f"Message recieved: {data_dict['message'][0]}"}).encode())
-            MESSAGES.post_message(f"{data_dict['message'][0]} - {get_timestamp_now()}")
+
+            job_name = data_dict["name"][0]
+            job_id = data_dict["id"][0]
+            job_owner = data_dict["owner"][0]
+
+            job = Query()
+            job_info = DB.get(job.job_name == job_name)
+            if not job_info:
+                DB.insert({"job_name": f"{job_name}", "job_id" : f"{job_id}", "job_owner" : f"{job_owner}"})
+            else:
+                DB.update({"job_id" : f"{job_id}"},job.job_name == job_name)
+
+            MESSAGES.post_message(f"{data_dict['message'][0]} - :calendar:{get_timestamp_now()}")
         else:
             data_dict = {k : v[0] for k, v in data_dict.items()} # get first of all.
             embed, tag_txt, file, filename = compose_resultembed(data_dict=data_dict)
@@ -186,6 +208,7 @@ DEADLINE_CATCHER = ThreadingHTTPServer((IP,1337),RequestHandler)
 def run_server():
     DEADLINE_CATCHER.serve_forever()
 
+
 SERVER_THREAD = threading.Thread(target=run_server)
 
 async def server_task():
@@ -204,6 +227,7 @@ intents = discord.Intents.default()
 client = MyClient(intents=intents)
 tree = app_commands.CommandTree(client)
 
+
 @tree.command(
     name = "ping",
     guild=discord.Object(id=858640120826560512),
@@ -211,6 +235,7 @@ tree = app_commands.CommandTree(client)
 )
 async def ping_command(interaction: discord.Interaction, argument: str):
     await interaction.response.send_message(f"Pong!: {argument}")
+
 
 @tree.command(
     name = "register",
@@ -227,6 +252,7 @@ async def register_command(interaction: discord.Interaction):
         DB.insert({"name": f"{name}", "id" : f"{interaction.user.id}"})
         await interaction.response.send_message(f"Your username has succesfully been registered! :white_check_mark:",ephemeral=True)
 
+
 @tree.command(
     name = "deregister",
     guild=discord.Object(id=858640120826560512),
@@ -241,6 +267,49 @@ async def deregister_command(interaction: discord.Interaction):
         await interaction.response.send_message(f"Your username has been deregistered! :fire:",ephemeral=True)
     else:
         await interaction.response.send_message(f"Your username doesn't exist in the registry. :nail_care:",ephemeral=True)
+
+def stats_to_embed(stat_json_string) -> discord.Embed:
+    stat_obj = json.loads(stat_json_string)
+    job_id = stat_obj["JobID"]
+    name = stat_obj["Name"]
+    from_machine = stat_obj["Mach"]
+    plugin = stat_obj["Plug"]
+    tasks_total = stat_obj["Tasks"]
+    tasks_complete = stat_obj["CompletedTaskCount"]
+    tasks_render_average = parse_deadlinetime(stat_obj["AvgFrameRend"])
+    render_time = parse_deadlinetime(stat_obj["RendTime"])
+
+    embed_msg = discord.Embed(title=f":chart_with_upwards_trend: Stats for `{name}`",
+                              description=f"Analytics gathered from :wireless: Deadline API.\n:calendar: {get_timestamp_now()}",
+                              color=discord.Colour.from_str("#f49221"))
+    embed_msg.add_field(name=":information_source: Metadata",value=f"**ID:** {job_id}\n**Plugin:** {plugin}\n**Submitted from:** {from_machine}",inline=False)
+    embed_msg.add_field(name=f":pencil: Task info:",value=f"**Processed** {tasks_complete} **out of** {tasks_total} **tasks.**\n**Average time/frame:** {tasks_render_average}\n**Total render time:** {render_time}",inline=False)
+    
+    return embed_msg
+
+job_group = app_commands.Group(name="job",description="All commands that are to do with jobs")
+
+@job_group.command(
+    name = "stat",
+    description = "Get job statistics",
+)
+async def renderjob_stats(interaction: discord.Interaction, job_name: str):
+    name = interaction.user.name
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    if job_info:
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            response = CON.Jobs.CalculateJobStatistics(job_info["job_id"])
+            response = str(response).replace("'",'"')
+            response = response.replace('None','"None"')
+            msg = stats_to_embed(response)
+            await interaction.response.send_message(embed=msg,ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+
+tree.add_command(job_group,guild=discord.Object(id=858640120826560512),)
 
 @client.event
 async def on_ready():
