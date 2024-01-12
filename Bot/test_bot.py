@@ -332,6 +332,8 @@ async def renderjob_stats(interaction: discord.Interaction, job_name: str):
             await interaction.response.send_message(embed=msg,ephemeral=True)
         else:
             await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
 
 tree.add_command(job_group,guild=discord.Object(id=858640120826560512),)
 
