@@ -24,8 +24,21 @@ DB = TinyDB(f"{__file__}/../register.db")
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
 
-def parse_deadlinetime(timestr: str) -> str:
+def parse_deadlinetime(timestr: str, is_render: bool = False) -> str:
     h, m, s = (int(round(float(t))) for t in timestr.split(":"))
+    
+    if is_render and (h,m,s) == (0,0,0):
+        return "Not done yet."
+
+    return f"{h:>2} hr, {m:>2} min, {s:>2} sec."
+
+def parse_deadlinetime_as_seconds(timestr: str):
+    h, m, s = (int(round(float(t))) for t in timestr.split(":"))
+    return h * 3600 + m * 60 + s
+
+def seconds_to_hms(seconds: int):
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
     return f"{h:>2} hr, {m:>2} min, {s:>2} sec."
 
 class MessageCache:
@@ -274,16 +287,27 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
     name = stat_obj["Name"]
     from_machine = stat_obj["Mach"]
     plugin = stat_obj["Plug"]
+    priority = stat_obj["Pri"]
     tasks_total = stat_obj["Tasks"]
     tasks_complete = stat_obj["CompletedTaskCount"]
     tasks_render_average = parse_deadlinetime(stat_obj["AvgFrameRend"])
-    render_time = parse_deadlinetime(stat_obj["RendTime"])
+    running_time = parse_deadlinetime(stat_obj["TtlTime"])
+    render_time = parse_deadlinetime(stat_obj["RendTime"],True)
+
+    tasks_left = int(float(tasks_total)) - int(float(tasks_complete))
+    time_pertask = parse_deadlinetime_as_seconds(stat_obj["AvgFrameRend"])
+    time_left = seconds_to_hms(time_pertask * tasks_left)
 
     embed_msg = discord.Embed(title=f":chart_with_upwards_trend: Stats for `{name}`",
                               description=f"Analytics gathered from :wireless: Deadline API.\n:calendar: {get_timestamp_now()}",
                               color=discord.Colour.from_str("#f49221"))
-    embed_msg.add_field(name=":information_source: Metadata",value=f"**ID:** {job_id}\n**Plugin:** {plugin}\n**Submitted from:** {from_machine}",inline=False)
-    embed_msg.add_field(name=f":pencil: Task info:",value=f"**Processed** {tasks_complete} **out of** {tasks_total} **tasks.**\n**Average time/frame:** {tasks_render_average}\n**Total render time:** {render_time}",inline=False)
+    embed_msg.add_field(name=":information_source: Metadata",value=f"**ID:** {job_id}\n**Plugin:** {plugin}\n**Job priority:** {priority}\n**Submitted from:** {from_machine}",inline=False)
+    embed_msg.add_field(name=f":pencil: Task info:",value=f"**Processed** {tasks_complete} **out of** {tasks_total} **tasks.**"
+                                                          f"\n**Average time/frame:** {tasks_render_average}"
+                                                          f"\n**Running time:** {running_time}"
+                                                          f"\n**Estimated time left:** {time_left}"
+                                                          f"\n**Total render time:** {render_time}",
+                                                           inline=False)
     
     return embed_msg
 
