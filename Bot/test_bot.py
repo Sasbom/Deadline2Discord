@@ -7,6 +7,8 @@ import threading
 import asyncio
 import time
 import datetime
+import ast
+import subprocess
 
 import discord
 from discord import app_commands
@@ -21,6 +23,8 @@ CON = DeadlineCon(socket.gethostname(),8081)
 IP = socket.gethostbyname(socket.gethostname())
 
 DB = TinyDB(f"{__file__}/../register.db")
+
+DEADLINE_CMD = R"C:\Program Files\Thinkbox\Deadline10\bin\deadlinecommand"
 
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
@@ -45,6 +49,40 @@ def seconds_to_hms(seconds: int):
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
     return f"{int(h):02d} hr, {int(m):02d} min, {int(s):02d} sec."
+
+def get_job_status(jobid):
+    details = CON.Jobs.GetJobDetails(jobid)
+    json_details = ast.literal_eval(f"{details}")
+    return json_details[jobid]["Job"]["Status"]
+
+def get_job(jobid):
+    details = CON.Jobs.GetJob(jobid)
+    return ast.literal_eval(f"{details}")
+    
+def dictify_dline_cmdout(out: str) -> dict:
+    file = out.split("\n")
+    obj = '{'
+    
+    for line in file:
+        
+        line = line.replace('\n', '')
+        line = line.replace('\t', '')
+        
+        tokens = line.split("=",1)
+        if len(tokens) == 2:
+            obj = obj + '"'+tokens[0].strip()+'":"'+tokens[1].strip()+'",'
+        
+    obj = obj[:-1]
+    
+    obj = obj + '}'
+    return ast.literal_eval(f"{obj}")
+
+def get_job_cmd(jobid):
+    job_proc = subprocess.run([DEADLINE_CMD, "-JobSubmissionInfoFromJob", str(jobid)],capture_output=True, text=True)
+    job_out = job_proc.stdout
+    plug_proc = subprocess.run([DEADLINE_CMD, "-PluginSubmissionInfoFromJob", jobid],capture_output=True, text=True)
+    plug_out = plug_proc.stdout
+    return dictify_dline_cmdout(job_out), dictify_dline_cmdout(plug_out)
 
 class MessageCache:
 
@@ -146,7 +184,7 @@ def compose_resultembed(data_dict : dict[str,str]) -> tuple[discord.Embed, str, 
                 
             if user_ids:
                 users = ", ".join(f"<@{user_id['id']}>" for user_id in user_ids)
-                emote = ":warning:" if data_dict["status"] == "Failed" else ":cooking:"
+                emote = "⚠" if data_dict["status"] == "Failed" else "🍳"
                 embed.add_field(name=":speaking_head: User(s): ", value=users,inline=False)
                 tag_message = f"{emote} Render {data_dict['status']}! {users}"
 
@@ -293,6 +331,7 @@ async def deregister_command(interaction: discord.Interaction):
     else:
         await interaction.response.send_message(f"Your username doesn't exist in the registry. :nail_care:",ephemeral=True)
 
+
 def stats_to_embed(stat_json_string) -> discord.Embed:
     stat_obj = json.loads(stat_json_string)
     job_id = stat_obj["JobID"]
@@ -308,21 +347,27 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
     running_time_raw = get_timedelta(job_object["job_time"])
     running_time = parse_deadlinetime(running_time_raw)
     render_time = parse_deadlinetime(stat_obj["RendTime"],True)
+    status = get_job_status(job_id)
 
     # Use running time to approximate time left
-    tasks_left = int(float(tasks_total)) - int(float(tasks_complete))
-    time_pertask = float(parse_deadlinetime_as_seconds(running_time_raw))/max(float(tasks_complete),0.001)
-    time_left = seconds_to_hms(time_pertask * tasks_left)
+    if render_time == "Not done yet.":
+        tasks_left = int(float(tasks_total)) - int(float(tasks_complete))
+        time_pertask = float(parse_deadlinetime_as_seconds(running_time_raw))/max(float(tasks_complete),0.001)
+        time_left = seconds_to_hms(time_pertask * tasks_left)
+    else:
+        time_left = seconds_to_hms(0)
+        running_time = render_time
 
     embed_msg = discord.Embed(title=f":chart_with_upwards_trend: Stats for `{name}`",
                               description=f"Analytics gathered from :wireless: Deadline API.\n:calendar: {get_timestamp_now()}",
                               color=discord.Colour.from_str("#f49221"))
-    embed_msg.add_field(name=":information_source: Metadata",value=f"**ID:** {job_id}\n**Plugin:** {plugin}\n**Job priority:** {priority}\n**Submitted from:** {from_machine}",inline=False)
+    embed_msg.add_field(name=":information_source: Metadata",value=f"**ID:** {job_id}\n**Plugin:** {plugin}\n**Job priority:** {priority}\n**Submitted from:** {from_machine}\n**Status:** {status}",inline=False)
     embed_msg.add_field(name=f":pencil: Task info:",value=f"**Processed** {tasks_complete} **out of** {tasks_total} **tasks.**"
                                                           f"\n**Average time/frame:** {tasks_render_average}"
                                                           f"\n**Running time:** {running_time}"
                                                           f"\n**Estimated time left:** {time_left}"
-                                                          f"\n**Total render time:** {render_time}",
+                                                          f"\n**Total render time:** {render_time}"
+                                                           "\n\n(Time estimate is based on task time, and time since the submission started. It may not be accurate, especially after a requeue. Requeues don't update the start time.)",
                                                            inline=False)
     
     return embed_msg
@@ -331,7 +376,7 @@ job_group = app_commands.Group(name="job",description="All commands that are to 
 
 @job_group.command(
     name = "stat",
-    description = "Get job statistics",
+    description = "Get a job's statistics",
 )
 async def renderjob_stats(interaction: discord.Interaction, job_name: str):
     name = interaction.user.name
@@ -341,15 +386,141 @@ async def renderjob_stats(interaction: discord.Interaction, job_name: str):
     if job_info:
         owners = job_info["job_owner"]
         if name in owners or owners == "everyone":
-            response = CON.Jobs.CalculateJobStatistics(job_info["job_id"])
-            response = str(response).replace("'",'"')
-            response = response.replace('None','"None"')
-            msg = stats_to_embed(response)
-            await interaction.response.send_message(embed=msg,ephemeral=True)
+            # let discord know i'm thinking rlly hard u m u
+            await interaction.response.defer(ephemeral=True,thinking=True)
+
+            response_stat = CON.Jobs.CalculateJobStatistics(job_info["job_id"])
+            response_stat = str(response_stat).replace("'",'"')
+            response_stat = response_stat.replace('None','"None"')
+
+            msg = stats_to_embed(response_stat)
+            
+            # send the message
+            await interaction.followup.send(embed=msg,ephemeral=True)
         else:
             await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
     else:
         await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+
+@job_group.command(
+    name="requeue",
+    description="Requeue all tasks in an existing job"
+)
+async def renderjob_requeue(interaction: discord.Interaction, job_name: str):
+    name = interaction.user.name
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    if job_info:
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            await interaction.response.defer(ephemeral=True,thinking=True)
+            CON.Jobs.UpdateJobSubmissionDate(job_info["job_id"])
+            CON.Jobs.RequeueJob(job_info["job_id"])
+            await interaction.followup.send(f"Requested to requeue all tasks in `{job_name}`.",ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+
+
+@job_group.command(
+    name="fail",
+    description="Deliberately Fail all tasks in an existing job"
+)
+async def renderjob_fail(interaction: discord.Interaction, job_name: str):
+    name = interaction.user.name
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    if job_info:
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            await interaction.response.defer(ephemeral=True,thinking=True)
+            CON.Jobs.FailJob(job_info["job_id"])
+            await interaction.followup.send(f"Requested to fail all tasks in `{job_name}`.",ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+
+
+@job_group.command(
+    name="reschedule",
+    description="Reschedule existing job as a new job. Can take a fair bit."
+)
+async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, job_new_name: str):
+    name = interaction.user.name
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    
+    if job_info:
+
+        if job_name == job_new_name:
+            await interaction.response.send_message(f"Please rename your job something else than `{job_name}` for clarity.",ephemeral=True)
+            return
+
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            await interaction.response.defer(ephemeral=True,thinking=True)
+    
+            props, plug = get_job_cmd(job_info["job_id"])
+            props["Name"] = job_new_name
+
+            CON.Jobs.SubmitJob(props,plug)
+
+            await interaction.followup.send(f"Requested to reschedule tasks in `{job_name}` as `{job_new_name}`.",ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+
+
+@job_group.command(
+    name="mine",
+    description="Show owned jobs and their states. Can take a while!"
+)
+async def renderjob_showmine(interaction: discord.Interaction):
+    name = interaction.user.name
+    job = Query()
+    search_in = lambda s : name in s
+    job_info = DB.search(job.job_owner.test(search_in))
+    if job_info:
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        response_txt = ["### All jobs found in your name:"]
+        for job in job_info:
+            status = get_job_status(job["job_id"])
+            response_txt.append(f"> `{job['job_name']}`,  Status: **{status}**")
+        await interaction.followup.send("\n".join(response_txt))
+    else:
+        await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
+
+
+@job_group.command(
+    name = "finish",
+    description = "Deregister a Completed/Failed job that you own."
+)
+async def job_deregister_command(interaction: discord.Interaction, job_name: str):
+    name = interaction.user.name
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    if job_info:
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            await interaction.response.defer(ephemeral=True,thinking=True)
+            status = get_job_status(job_info["job_id"])
+            if status in ["Completed", "Failed"]:
+                DB.remove(job.job_name == job_name)
+                await interaction.followup.send(f"Unregistered `{job_name}` from internal registry!",ephemeral=True)
+            else:
+                await interaction.followup.send(f"`{job_name}` couldn't be removed, status is **{status}**. \nTip: Use `/job fail {job_name}` to make it available for finishing!",ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+
 
 tree.add_command(job_group,guild=discord.Object(id=858640120826560512),)
 
