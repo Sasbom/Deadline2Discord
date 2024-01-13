@@ -6,6 +6,7 @@ import socket
 import threading
 import asyncio
 import time
+import datetime
 
 import discord
 from discord import app_commands
@@ -30,16 +31,20 @@ def parse_deadlinetime(timestr: str, is_render: bool = False) -> str:
     if is_render and (h,m,s) == (0,0,0):
         return "Not done yet."
 
-    return f"{h:>2} hr, {m:>2} min, {s:>2} sec."
+    return f"{int(h):02d} hr, {int(m):02d} min, {int(s):02d} sec."
 
 def parse_deadlinetime_as_seconds(timestr: str):
     h, m, s = (int(round(float(t))) for t in timestr.split(":"))
     return h * 3600 + m * 60 + s
 
+def get_timedelta(starttime):
+    t = float(starttime)
+    return str(datetime.timedelta(seconds=int(time.time()-t)))
+
 def seconds_to_hms(seconds: int):
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
-    return f"{h:>2} hr, {m:>2} min, {s:>2} sec."
+    return f"{int(h):02d} hr, {int(m):02d} min, {int(s):02d} sec."
 
 class MessageCache:
 
@@ -181,14 +186,21 @@ class RequestHandler(BaseHTTPRequestHandler):
             job_name = data_dict["name"][0]
             job_id = data_dict["id"][0]
             job_owner = data_dict["owner"][0]
+            job_time = "0"
+            if "time" in data_dict.keys():
+                job_time = data_dict["time"][0]
 
             job = Query()
             job_info = DB.get(job.job_name == job_name)
             if not job_info:
-                DB.insert({"job_name": f"{job_name}", "job_id" : f"{job_id}", "job_owner" : f"{job_owner}"})
+                DB.insert({"job_name": f"{job_name}", "job_id" : f"{job_id}", "job_owner" : f"{job_owner}", "job_time" : f"{job_time}"})
             else:
-                DB.update({"job_id" : f"{job_id}"},job.job_name == job_name)
+                DB.update({"job_id" : f"{job_id}" },job.job_name == job_name)
 
+                if job_time != "0":
+                    DB.update({"job_time" : f"{job_time}"},job.job_name == job_name)
+
+            
             MESSAGES.post_message(f"{data_dict['message'][0]} - :calendar:{get_timestamp_now()}")
         else:
             data_dict = {k : v[0] for k, v in data_dict.items()} # get first of all.
@@ -291,11 +303,15 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
     tasks_total = stat_obj["Tasks"]
     tasks_complete = stat_obj["CompletedTaskCount"]
     tasks_render_average = parse_deadlinetime(stat_obj["AvgFrameRend"])
-    running_time = parse_deadlinetime(stat_obj["TtlTime"])
+    job_q = Query()
+    job_object = DB.get(job_q.job_id == job_id)
+    running_time_raw = get_timedelta(job_object["job_time"])
+    running_time = parse_deadlinetime(running_time_raw)
     render_time = parse_deadlinetime(stat_obj["RendTime"],True)
 
+    # Use running time to approximate time left
     tasks_left = int(float(tasks_total)) - int(float(tasks_complete))
-    time_pertask = parse_deadlinetime_as_seconds(stat_obj["AvgFrameRend"])
+    time_pertask = float(parse_deadlinetime_as_seconds(running_time_raw))/max(float(tasks_complete),0.001)
     time_left = seconds_to_hms(time_pertask * tasks_left)
 
     embed_msg = discord.Embed(title=f":chart_with_upwards_trend: Stats for `{name}`",

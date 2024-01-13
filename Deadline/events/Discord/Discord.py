@@ -11,6 +11,7 @@ import sys
 import socket
 from urllib import request, parse
 import os
+import time
 
 from Deadline.Jobs import Job
 from Deadline.Events import DeadlineEventListener
@@ -71,7 +72,7 @@ class DiscordEventListener(DeadlineEventListener):
         self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job has started")
-        log_to_server(f"A job, `{job.JobName}`, has started",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": job.GetJobExtraInfoKeyValueWithDefault("JobPing","everyone")})
+        log_to_server(f"A job, `{job.JobName}`, has started",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": job.GetJobExtraInfoKeyValueWithDefault("JobPing","everyone"), "time" : str(int(time.time()))})
         pass
     
     def OnJobFinished(self, job: Job):
