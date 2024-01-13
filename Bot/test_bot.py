@@ -446,6 +446,48 @@ async def renderjob_fail(interaction: discord.Interaction, job_name: str):
 
 
 @job_group.command(
+    name="suspend",
+    description="Suspend a job, putting it on pause."
+)
+async def renderjob_suspend(interaction: discord.Interaction, job_name: str):
+    name = interaction.user.name
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    if job_info:
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            await interaction.response.defer(ephemeral=True,thinking=True)
+            CON.Jobs.SuspendJob(job_info["job_id"])
+            await interaction.followup.send(f"Suspended `{job_name}`.",ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+
+
+@job_group.command(
+    name="resume",
+    description="Resume a job, releasing it from suspended state"
+)
+async def renderjob_suspend(interaction: discord.Interaction, job_name: str):
+    name = interaction.user.name
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    if job_info:
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            await interaction.response.defer(ephemeral=True,thinking=True)
+            CON.Jobs.ResumeJob(job_info["job_id"])
+            await interaction.followup.send(f"Resumed `{job_name}`.",ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+
+
+@job_group.command(
     name="reschedule",
     description="Reschedule existing job as a new job. Can take a fair bit."
 )
@@ -497,6 +539,7 @@ async def renderjob_showmine(interaction: discord.Interaction):
         await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
 
 
+
 @job_group.command(
     name = "finish",
     description = "Deregister a Completed/Failed job that you own."
@@ -521,6 +564,29 @@ async def job_deregister_command(interaction: discord.Interaction, job_name: str
     else:
         await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
 
+
+@job_group.command(
+    name="finish_all",
+    description="Deregister ALL Completed/Failed jobs that you explicitly own. Can take a while."
+)
+async def job_deregister_all(interaction: discord.Interaction):
+    name = interaction.user.name
+    job = Query()
+    search_in = lambda s : name in s
+    job_info = DB.search(job.job_owner.test(search_in))
+    if job_info:
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        response_txt = ["### Deregistered:"]
+        for job in job_info:
+            status = get_job_status(job_info["job_id"])
+            job_name = job_info["job_name"]
+            if status in ["Completed", "Failed"]:
+                DB.remove(job.job_name == job_name)
+            response_txt.append(f"> `{job['job_name']}`")
+        await interaction.followup.send(",\n".join(response_txt))
+    else:
+        await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
+    
 
 tree.add_command(job_group,guild=discord.Object(id=858640120826560512),)
 
