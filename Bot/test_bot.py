@@ -9,7 +9,7 @@ import time
 import datetime
 import ast
 import subprocess
-from typing import Optional
+from typing import Optional, Any
 import os
 
 import discord
@@ -382,7 +382,7 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
     
     return embed_msg
 
-job_group = app_commands.Group(name="job",description="All commands that are to do with jobs")
+job_group = app_commands.Group(name="job",description="All commands that have something to do or manipulate jobs")
 
 @job_group.command(
     name = "stat",
@@ -635,9 +635,31 @@ async def job_help(interaction: discord.Interaction, nederlands: Optional[bool] 
     embed = discord.Embed(title="Job help",color=DEADLINE_ORANGE, description=help_txt)
     await interaction.response.send_message(embed=embed,ephemeral=True)
 
+
+calc_group = app_commands.Group(name="calculate",description="Calculate things!")
+
+@calc_group.command(
+    name="rendertime",
+    description="Estimate render time in a sequence of some FPS and duration. Time in HH:MM:SS"
+)
+async def calculate_frames_fromseconds(interaction: discord.Interaction, 
+                                       fps: str = "24.0",
+                                       frame_rendertime: str = "00:00:00",
+                                       sequence_duration: str = "00:00:00",
+                                       pc_amt: int = 1):
+    fps = float(fps)
+    rendersec = parse_deadlinetime_as_seconds(frame_rendertime)
+    durationsec = parse_deadlinetime_as_seconds(sequence_duration)
+    pc_amt = max(1,pc_amt)
+    sequence_frames = round(fps*float(durationsec))
+    sequence_rendertime = (rendersec * sequence_frames) / float(pc_amt)
     
+    message = f"A sequence of length `{seconds_to_hms(durationsec)}` at `{fps} frames per second`,\nhas `{int(sequence_frames)} frames` total,\nand will render for `{seconds_to_hms(sequence_rendertime)}` on `{pc_amt} workers`\nwith each frame taking `{seconds_to_hms(rendersec)}`"
+    
+    await interaction.response.send_message(message,ephemeral=True)
 
 tree.add_command(job_group,guild=discord.Object(id=858640120826560512),)
+tree.add_command(calc_group,guild=discord.Object(id=858640120826560512),)
 
 @client.event
 async def on_ready():
