@@ -499,7 +499,7 @@ async def renderjob_suspend(interaction: discord.Interaction, job_name: str):
 
 @job_group.command(
     name="reschedule",
-    description="Reschedule existing job as a new job. Can take a fair bit.\nAdditionally, you can specify a new scenefile to render, a new filename to use, and a new directory to render to."
+    description="Reschedule existing job as a new job. Can take a fair bit."
 )
 async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, job_new_name: str, job_new_scenefile: Optional[str] = None, job_new_filename: Optional[str] = None,job_new_directory: Optional[str] = None ):
     name = interaction.user.name
