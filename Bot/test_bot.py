@@ -9,6 +9,8 @@ import time
 import datetime
 import ast
 import subprocess
+from typing import Optional
+import os
 
 import discord
 from discord import app_commands
@@ -25,6 +27,8 @@ IP = socket.gethostbyname(socket.gethostname())
 DB = TinyDB(f"{__file__}/../register.db")
 
 DEADLINE_CMD = R"C:\Program Files\Thinkbox\Deadline10\bin\deadlinecommand"
+
+DEADLINE_ORANGE = discord.Colour.from_str("#f49221")
 
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
@@ -201,7 +205,7 @@ MESSAGES = MessageCache()
 
 # testing out an embed.
 embed_msg = discord.Embed(title="Deadline bot v0.1\nby Sas van Gulik; @sasbom",
-                          description="Discord integration for AWS Thinkbox Deadline :brain:", color=discord.Colour.from_str("#f49221"))
+                          description="Discord integration for AWS Thinkbox Deadline :brain:", color=DEADLINE_ORANGE)
 MESSAGES.post_message(embed_msg)
 # end embed test
 
@@ -348,6 +352,11 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
     running_time = parse_deadlinetime(running_time_raw)
     render_time = parse_deadlinetime(stat_obj["RendTime"],True)
     status = get_job_status(job_id)
+    job_dict, plugin_dict = get_job_cmd(job_id)
+
+    directory = job_dict["OutputDirectory0"]
+    filename = job_dict["OutputFilename0"]
+    scene_file = plugin_dict["SceneFile"]
 
     # Use running time to approximate time left
     if render_time == "Not done yet.":
@@ -360,14 +369,15 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
 
     embed_msg = discord.Embed(title=f":chart_with_upwards_trend: Stats for `{name}`",
                               description=f"Analytics gathered from :wireless: Deadline API.\n:calendar: {get_timestamp_now()}",
-                              color=discord.Colour.from_str("#f49221"))
+                              color=DEADLINE_ORANGE)
     embed_msg.add_field(name=":information_source: Metadata",value=f"**ID:** {job_id}\n**Plugin:** {plugin}\n**Job priority:** {priority}\n**Submitted from:** {from_machine}\n**Status:** {status}",inline=False)
     embed_msg.add_field(name=f":pencil: Task info:",value=f"**Processed** {tasks_complete} **out of** {tasks_total} **tasks.**"
                                                           f"\n**Average time/frame:** {tasks_render_average}"
                                                           f"\n**Running time:** {running_time}"
                                                           f"\n**Estimated time left:** {time_left}"
                                                           f"\n**Total render time:** {render_time}"
-                                                           "\n\n(Time estimate is based on task time, and time since the submission started. It may not be accurate, especially after a requeue. Requeues don't update the start time.)",
+                                                           "\n\n(Time estimate is based on task time, and time since the submission started. It may not be accurate, especially after a requeue. Requeues don't update the start time.)"
+                                                          f"\n\n**Output directory:**\n`{directory}`\n**Output filename:**\n`{filename}`\n**Rendering Scene:**\n`{scene_file}`",
                                                            inline=False)
     
     return embed_msg
@@ -489,9 +499,9 @@ async def renderjob_suspend(interaction: discord.Interaction, job_name: str):
 
 @job_group.command(
     name="reschedule",
-    description="Reschedule existing job as a new job. Can take a fair bit."
+    description="Reschedule existing job as a new job. Can take a fair bit.\nAdditionally, you can specify a new scenefile to render, a new filename to use, and a new directory to render to."
 )
-async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, job_new_name: str):
+async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, job_new_name: str, job_new_scenefile: Optional[str] = None, job_new_filename: Optional[str] = None,job_new_directory: Optional[str] = None ):
     name = interaction.user.name
     
     job = Query()
@@ -509,6 +519,17 @@ async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, 
     
             props, plug = get_job_cmd(job_info["job_id"])
             props["Name"] = job_new_name
+
+            if job_new_scenefile:
+                plug["SceneFIle"] = job_new_scenefile
+            
+            if job_new_filename:
+                props["OutputFilename0"] = job_new_filename
+        
+            if job_new_directory:
+                props["OutputDirectory0"] = job_new_directory
+            
+            plug["OutputFile"] = os.path.join(props["OutputDirectory0"],props["OutputFilename0"])
 
             CON.Jobs.SubmitJob(props,plug)
 
@@ -586,6 +607,34 @@ async def job_deregister_all(interaction: discord.Interaction):
         await interaction.followup.send(",\n".join(response_txt))
     else:
         await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
+
+
+@job_group.command(
+    name="help",
+    description="Help page for job commands, also availale in dutch with nederlands = True"
+)
+async def job_help(interaction: discord.Interaction, nederlands: Optional[bool] = False):
+    if not nederlands:
+        help_txt = "**All /job commands, explained.**\n\n\
+                    **/job mine:** Shows you all jobs that are yours, and their status.\n\
+                    **/job stat:** Shows you useful info about a specific job.\n\n\
+                    **/job suspend:** Pause a job. Time will keep elapsing, but it won't render.\n\
+                    **/job resume:** Unpause a job if it's paused. It will start rendering again!\n\
+                    **/job fail:** Mark a job as failed! You won't be able to requeue this, but rescheduling works.\n\n\
+                    **/job requeue:** Re-queue up all the tasks within de job, effectively rendering it again.\n\
+                    **/job reschedule:** Repost a job, but with a different name, + other options."
+    else:
+        help_txt = "**Alle /job opdrachten, uitgelegd.**\n\n\
+                    **/job mine:** Laat alle renderopdrachten zien die van jou zijn, en hun status.\n\
+                    **/job stat:** Laat handige informatie zien over een specifieke renderopdracht.\n\n\
+                    **/job suspend:** Zet een opdracht op pauze!\n\
+                    **/job resume:** Als een opdracht op pauze staat, zet je 'm met deze weer aan.\n\
+                    **/job fail:** Markeer een opdracht als gefaald. Hierdoor kan je hem niet meer 'requeue'-en, maar wel reschedulen.\n\n\
+                    **/job requeue:** Zet alle taken in de opdracht op dezelfde manier aan, waardoor je 'm opnieuw rendert.\n\
+                    **/job reschedule:** Maak een kopie van de opdracht met een andere naam, en post hem opnieuw met extra opties."
+    embed = discord.Embed(title="Job help",color=DEADLINE_ORANGE, description=help_txt)
+    await interaction.response.send_message(embed=embed,ephemeral=True)
+
     
 
 tree.add_command(job_group,guild=discord.Object(id=858640120826560512),)
