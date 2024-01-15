@@ -35,6 +35,7 @@ REGEX_FLOAT = re.compile(r"\d+[.]?[\d+]?")
 
 REGEX_TIME_HHMMSS = re.compile(r"\d{1,}[:][0-5]{1}\d{1}[:][0-5]{1}\d{1}")
 REGEX_TIME_MMSS = re.compile(r"[0-5]{0,1}\d{1}[:][0-5]{1}\d{1}")
+REGEX_FRAMERANGE = re.compile(r"(?:[\d]+\s*\-{1}\s*[\d]+|[\d]+)")
 
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
@@ -543,7 +544,17 @@ async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, 
         
             if job_new_directory:
                 props["OutputDirectory0"] = job_new_directory
-            
+
+            if job_new_frames:
+                # validate new frames
+                split_f = job_new_frames.split(",")
+                if not all(re.fullmatch(REGEX_FRAMERANGE,m.strip()) for m in split_f):
+                    await interaction.response.send_message(f"Given framerange `{job_new_frames}` is not valid.\nUse valid syntax; `15, 20-25, 100`.",ephemeral=True)
+                    return
+                else:
+                    props["Frames"] = job_new_frames
+                    
+
             plug["OutputFile"] = os.path.join(props["OutputDirectory0"],props["OutputFilename0"])
 
             CON.Jobs.SubmitJob(props,plug)
