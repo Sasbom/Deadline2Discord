@@ -9,8 +9,9 @@ import time
 import datetime
 import ast
 import subprocess
-from typing import Optional, Any
+from typing import Optional
 import os
+import re
 
 import discord
 from discord import app_commands
@@ -30,19 +31,33 @@ DEADLINE_CMD = R"C:\Program Files\Thinkbox\Deadline10\bin\deadlinecommand"
 
 DEADLINE_ORANGE = discord.Colour.from_str("#f49221")
 
+REGEX_FLOAT = re.compile(r"\d+[.]?[\d+]?")
+
+REGEX_TIME_HHMMSS = re.compile(r"\d{1,}[:][0-5]{1}\d{1}[:][0-5]{1}\d{1}")
+REGEX_TIME_MMSS = re.compile(r"[0-5]{0,1}\d{1}[:][0-5]{1}\d{1}")
+
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
 
 def parse_deadlinetime(timestr: str, is_render: bool = False) -> str:
+    dayhours = 0
+    if "," in timestr:
+        days, timestr = timestr.split(",")
+        dayhours = int(days.split(" ")[0])*24
     h, m, s = (int(round(float(t))) for t in timestr.split(":"))
-    
+    h += dayhours
     if is_render and (h,m,s) == (0,0,0):
         return "Not done yet."
 
     return f"{int(h):02d} hr, {int(m):02d} min, {int(s):02d} sec."
 
 def parse_deadlinetime_as_seconds(timestr: str):
+    dayhours = 0
+    if "," in timestr:
+        days, timestr = timestr.split(",")
+        dayhours = int(days.split(" ")[0])*24
     h, m, s = (int(round(float(t))) for t in timestr.split(":"))
+    h += dayhours
     return h * 3600 + m * 60 + s
 
 def get_timedelta(starttime):
@@ -501,7 +516,7 @@ async def renderjob_suspend(interaction: discord.Interaction, job_name: str):
     name="reschedule",
     description="Reschedule existing job as a new job. Can take a fair bit."
 )
-async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, job_new_name: str, job_new_scenefile: Optional[str] = None, job_new_filename: Optional[str] = None,job_new_directory: Optional[str] = None ):
+async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, job_new_name: str, job_new_scenefile: Optional[str] = None, job_new_filename: Optional[str] = None,job_new_directory: Optional[str] = None,job_new_frames: Optional[str] = None):
     name = interaction.user.name
     
     job = Query()
@@ -647,7 +662,23 @@ async def calculate_frames_fromseconds(interaction: discord.Interaction,
                                        frame_rendertime: str = "00:00:00",
                                        sequence_duration: str = "00:00:00",
                                        pc_amt: int = 1):
-    fps = float(fps)
+    if re.fullmatch(REGEX_FLOAT,fps):
+        fps = float(fps)
+    else:
+        await interaction.response.send_message("Please enter a valid number for fps, frames per second. This can be a decimal number e.g. (23.994)",ephemeral=True)
+        return
+    
+    timecodes = [frame_rendertime, sequence_duration]
+    for i, t in enumerate(timecodes):
+        if not re.fullmatch(REGEX_TIME_HHMMSS,t):
+            if re.fullmatch(REGEX_TIME_MMSS,t):
+                t = f"00:{t}"
+                timecodes[i] = t
+            else:
+                await interaction.response.send_message(f"Time: {t} could not be properly interpreted.\nPlease format time as HH:MM:SS, or MM:SS e.g. (01:05:54, 12:10, 1:30).",ephemeral=True)
+                return
+    frame_rendertime, sequence_duration = timecodes
+
     rendersec = parse_deadlinetime_as_seconds(frame_rendertime)
     durationsec = parse_deadlinetime_as_seconds(sequence_duration)
     pc_amt = max(1,pc_amt)
