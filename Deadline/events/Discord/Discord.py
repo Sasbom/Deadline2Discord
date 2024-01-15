@@ -12,10 +12,13 @@ import socket
 from urllib import request, parse
 import os
 import time
+import re
 
 from Deadline.Jobs import Job
 from Deadline.Events import DeadlineEventListener
 from Deadline.Scripting import ClientUtils
+
+REGEX_FILE = re.compile(r"([\w]+)_([#]+).([\w]+)")
 
 def log_to_server(message, ip, extra_info = None):
     _adress = f"http://{ip}:1337"
@@ -72,7 +75,7 @@ class DiscordEventListener(DeadlineEventListener):
         self._ip = self.get_ip()
 
         self.LogStdout("Discord event plugin noticed that a job has started")
-        log_to_server(f"A job, `{job.JobName}`, has started",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": job.GetJobExtraInfoKeyValueWithDefault("JobPing","everyone"), "time" : str(int(time.time()))})
+        log_to_server(f"A job, `{job.JobName}`, has started!",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": job.GetJobExtraInfoKeyValueWithDefault("JobPing","everyone"), "time" : str(int(time.time()))})
         pass
     
     def OnJobFinished(self, job: Job):
@@ -115,9 +118,21 @@ def compose_job_dict(job: Job):
 
 def get_imagepaths(job: Job):
     dir = job.JobOutputDirectories[0]
+    
+    fname = job.GetJobInfoKeyValue("OutputFilename0")
+    print(fname)
+    fname_match = re.match(REGEX_FILE,fname)
+    strlookup = None
+    if fname_match is not None:
+        strlookup = fname_match.group(1)
+        print(strlookup)
+
     out = []
     for dpath, dname, fnames in os.walk(dir):
-        out.extend([os.path.join(dir,f) for f in fnames])
+        if strlookup:
+            out.extend([os.path.join(dir,f) for f in fnames if strlookup in f])
+        else:
+            out.extend([os.path.join(dir,f) for f in fnames])
         break
 
     return out
