@@ -4,6 +4,8 @@ Discord bot for watching over a renderfarm, remotely!
 At my job, I find myself to be absent from any PC when someone asks me to diagnose some render
 in the system, and i do not want to log in remotely every time I have to make sure something is re-submitted.
 
+Made with love for my students at HKU.
+
 ### Features:
 - Managing jobs by discord username
 - Getting useful job stats
@@ -44,14 +46,14 @@ scriptDialog.AddControlToGrid( "CommentLabel", "LabelControl", "Comment", 2, 0, 
 scriptDialog.AddControlToGrid( "CommentBox", "TextControl", "", 2, 1 )
 ```
 The numbers reflect the number in the grid you are placing the control.<br>
-I'm modifying Maya's submission plugin from deadline 10.3, so I am going to go below the last one in the first page:
+I'm modifying Maya's submission plugin from deadline 10.3 that is used in the Monitor, so I am going to go below the department in the first interface element:
 ```py
-# from line 140 >
-scriptDialog.AddControlToGrid( "VersionLabel", "LabelControl", "Version", 6, 0, "The version of Maya to render with.", False )
-versionBox = scriptDialog.AddComboControlToGrid( "VersionBox", "ComboControl", supported_versions[-1], supported_versions, 6, 1 )
-versionBox.ValueModified.connect( VersionChanged )
-scriptDialog.AddControlToGrid( "BuildLabel", "LabelControl", "Build To Force", 6, 2, "You can force 32 or 64 bit rendering with this option.", False )
-scriptDialog.AddComboControlToGrid( "BuildBox", "ComboControl", "None", ( "None", "32bit", "64bit" ), 6, 3 )
+# from line 71 >
+scriptDialog.AddControlToGrid( "DepartmentLabel", "LabelControl", "Department", 3, 0, "The department you belong to. This is optional and can be left blank.", False )
+scriptDialog.AddControlToGrid( "DepartmentBox", "TextControl", "", 3, 1 )
+
+scriptDialog.AddControlToGrid( "PingLabel", "LabelControl", "Ping user(s)", 4, 0, "Discord user to ping / claim job.", False )
+scriptDialog.AddControlToGrid( "PingBox", "TextControl", "", 4, 1 )
 
 # ADD OUR INTERFACE ELEMENT.
 
@@ -99,4 +101,16 @@ writer.WriteLine("ExtraInfoKeyValue0=JobPing=%s" % pingname)
 
 writer.Close()
 ```
-With this, if some usernames are added, they are now appropriately tagged and given ownership of the job.
+With this, if some usernames are added, they are now appropriately tagged and given ownership of the job.<br>
+This however, only works from deadline monitor, and things that straight up call the python submission script.
+
+![](example_plugins/maya_scr_deadline.png)<br>
+<i>Deadline Monitor's internal Maya submitter.</i>
+
+The actual internal submitter that is called in Maya resides in `REPOSITORY/submission/Maya/Main/SubmitMayaToDeadline.mel`, 
+a horrifying MEL script, just awful. 
+I'm not going to detail it here but I basically shadowed what is being done with the department attribute.
+You can find it in example_plugins/SubmitMayaToDeadline.mel.
+
+![](example_plugins/maya_scr.png)<br>
+<i>Maya's own mel based deadline submitter.</i>
