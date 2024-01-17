@@ -48,3 +48,4 @@ test_localsystem.txt
 
 util/destination.txt
 Bot/register.db
+Bot/secrets.json

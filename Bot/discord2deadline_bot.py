@@ -20,8 +20,13 @@ from tinydb import TinyDB, Query
 
 from Deadline.DeadlineConnect import DeadlineCon
 
+from util.secrets import Secrets
+
+SECRET = Secrets(f"{__file__}/../secrets.json")
+GUILD = discord.Object(id=SECRET.guild)
+
 # Establish connection with deadline server
-CON = DeadlineCon(socket.gethostname(),8081)
+CON = DeadlineCon(socket.gethostname(),SECRET.deadline_port)
 
 IP = socket.gethostbyname(socket.gethostname())
 
@@ -286,7 +291,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             MESSAGES.post_message(embed_msg)
 
 
-DEADLINE_CATCHER = ThreadingHTTPServer((IP,1337),RequestHandler)
+DEADLINE_CATCHER = ThreadingHTTPServer((IP,SECRET.internal_http_port),RequestHandler)
 
 def run_server():
     DEADLINE_CATCHER.serve_forever()
@@ -312,17 +317,8 @@ tree = app_commands.CommandTree(client)
 
 
 @tree.command(
-    name = "ping",
-    guild=discord.Object(id=858640120826560512),
-    description = "Check connection to bot."
-)
-async def ping_command(interaction: discord.Interaction, argument: str):
-    await interaction.response.send_message(f"Pong!: {argument}")
-
-
-@tree.command(
     name = "register",
-    guild=discord.Object(id=858640120826560512),
+    guild=GUILD,
     description = "Register your handle (allows you to be pinged!)"
 )
 async def register_command(interaction: discord.Interaction):
@@ -338,7 +334,7 @@ async def register_command(interaction: discord.Interaction):
 
 @tree.command(
     name = "deregister",
-    guild=discord.Object(id=858640120826560512),
+    guild=GUILD,
     description = "Deregister your handle (no more pings!)"
 )
 async def deregister_command(interaction: discord.Interaction):
@@ -700,16 +696,16 @@ async def calculate_frames_fromseconds(interaction: discord.Interaction,
     
     await interaction.response.send_message(message,ephemeral=True)
 
-tree.add_command(job_group,guild=discord.Object(id=858640120826560512),)
-tree.add_command(calc_group,guild=discord.Object(id=858640120826560512),)
+tree.add_command(job_group,guild=GUILD)
+tree.add_command(calc_group,guild=GUILD)
 
 @client.event
 async def on_ready():
     # When client is ready, register command tree
-    await tree.sync(guild=discord.Object(id=858640120826560512))
+    await tree.sync(guild=GUILD)
     
 SERVER_THREAD.start()
 
-client.run(token="MTE5MzU2OTAzNTQ0NzcxMzk0Mw.Guyf72.ax5uzK769mpeY4OZqSgEYnS4ockxqSYxe6K9EA")
+client.run(token=SECRET.bot_token)
 DEADLINE_CATCHER.shutdown()
 SERVER_THREAD.join()
