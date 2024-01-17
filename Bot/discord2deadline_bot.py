@@ -20,7 +20,7 @@ from tinydb import TinyDB, Query
 
 from Deadline.DeadlineConnect import DeadlineCon
 
-import util.secrets
+import util.secrets as secrets
 
 SECRET = secrets.Secret
 GUILD = discord.Object(id=SECRET.guild)

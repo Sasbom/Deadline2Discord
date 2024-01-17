@@ -43,4 +43,4 @@ class Secrets(metaclass=SingletonMetaClass):
             sys.exit(0)
 
         
-Secret = Secrets("./secrets.json")
+Secret = Secrets(f"{__file__}/../../secrets.json")
