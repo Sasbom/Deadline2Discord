@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import parse
 import sys
 import json
@@ -15,14 +15,16 @@ import re
 
 import discord
 from discord import app_commands
-from discord.ext import commands
 from tinydb import TinyDB, Query
 
 from Deadline.DeadlineConnect import DeadlineCon
 
-import util.secrets as secrets
+import util.secret as secret
+from util.message_cache import MESSAGES
 
-SECRET = secrets.Secret
+from util.httpserver import DeadlineHTTPCatcher
+
+SECRET = secret.Secret
 GUILD = discord.Object(id=SECRET.guild)
 
 # Establish connection with deadline server
@@ -109,68 +111,6 @@ def get_job_cmd(jobid):
     plug_out = plug_proc.stdout
     return dictify_dline_cmdout(job_out), dictify_dline_cmdout(plug_out)
 
-class MessageCache:
-
-    class MessageContent:
-        def __init__(self, message: str = "", embed: discord.Embed = None, file: discord.File = None, followup = None):
-            self._message = message
-            self._embed = embed
-            self._file = file
-            self._followup = followup
-
-        async def send_to_channel(self, channel: discord.TextChannel):
-            args, kwargs = self._compose_args()
-            await channel.send(*args, **kwargs)
-            if self._followup and isinstance(self._followup,MessageCache.MessageContent):
-                await self._followup.send_to_channel(channel)
-
-        def create_async_task(self, channel: discord.TextChannel):
-            return asyncio.create_task(self.send_to_channel(channel))
-            
-        def _compose_args(self) -> tuple[list, dict]:
-            args = [self._message] if self._message else []
-            kwargs = {}
-            if self._embed is not None:
-                kwargs.update({"embed" : self._embed})
-            if self._file is not None:
-                kwargs.update({"file" : self._file})
-            return args, kwargs
-        
-        def then(self, followup):
-            if isinstance(followup,MessageCache.MessageContent):
-                self._followup = followup
-    
-    def __init__(self):
-        self._messages: list[MessageCache.MessageContent] = []
-
-    def create_message(self, message):
-        if isinstance(message,discord.Embed):
-            msg = self.MessageContent(embed=message)
-        elif isinstance(message,discord.File):
-            msg = self.MessageContent(file=message)
-        else:
-            msg = self.MessageContent(message)
-       
-        return msg
-        
-    def post_message(self, message):
-        msg = message
-        if not isinstance(message,MessageCache.MessageContent):
-            msg = self.create_message(message)
-        self._messages.append(msg)
-
-    def clear_messages(self):
-        self._messages.clear()
-
-    @property
-    def messages(self):
-        while self._messages:
-            yield self._messages.pop()
-
-    @property
-    def has_messages(self):
-        return bool(self._messages)
-
 def compose_resultembed(data_dict : dict[str,str]) -> tuple[discord.Embed, str, discord.File, str]:
     has_failed = data_dict["status"] == "Failed"
     
@@ -222,86 +162,16 @@ def compose_resultembed(data_dict : dict[str,str]) -> tuple[discord.Embed, str, 
 
     return embed, tag_message, file, filename
 
-MESSAGES = MessageCache()
-
 # testing out an embed.
 embed_msg = discord.Embed(title="Deadline bot v0.1\nby Sas van Gulik; @sasbom",
                           description="Discord integration for AWS Thinkbox Deadline :brain:", color=DEADLINE_ORANGE)
 MESSAGES.post_message(embed_msg)
 # end embed test
 
-class RequestHandler(BaseHTTPRequestHandler):
-
-    def do_POST(self):
-        length = int(self.headers["Content-Length"])
-        data = self.rfile.read(length).decode()
-        data_dict = parse.parse_qs(data)
-
-        self.send_response(200)
-        
-        self.send_header("Content-type","application/json")
-        self.end_headers()
-        
-        if "message" in data_dict.keys():
-            print(f"Recieved message: {data_dict['message'][0]}")
-            self.wfile.write(json.dumps({"message" : f"Message recieved: {data_dict['message'][0]}"}).encode())
-
-            job_name = data_dict["name"][0]
-            job_id = data_dict["id"][0]
-            job_owner = data_dict["owner"][0]
-            job_time = "0"
-            if "time" in data_dict.keys():
-                job_time = data_dict["time"][0]
-
-            job = Query()
-            job_info = DB.get(job.job_name == job_name)
-            if not job_info:
-                DB.insert({"job_name": f"{job_name}", "job_id" : f"{job_id}", "job_owner" : f"{job_owner}", "job_time" : f"{job_time}"})
-            else:
-                DB.update({"job_id" : f"{job_id}" },job.job_name == job_name)
-
-                if job_time != "0":
-                    DB.update({"job_time" : f"{job_time}"},job.job_name == job_name)
-
-            
-            MESSAGES.post_message(f"{data_dict['message'][0]} - :calendar:{get_timestamp_now()}")
-        else:
-            data_dict = {k : v[0] for k, v in data_dict.items()} # get first of all.
-            embed, tag_txt, file, filename = compose_resultembed(data_dict=data_dict)
-            
-            embed_msg = tag_msg = pic_msg = label_msg = None
-            
-            embed_msg = MESSAGES.create_message(embed)
-            
-            if file:
-                pic_msg = MESSAGES.create_message(file)
-                label_msg = MESSAGES.create_message(f":frame_photo: `{filename}`")
-            
-            if tag_txt:
-                tag_msg = MESSAGES.create_message(tag_txt)
-                
-            order = (tag_msg, pic_msg, label_msg)
-
-            last_msg = embed_msg
-            for m in order:
-                if m is not None:
-                    last_msg.then(m)
-                    last_msg = m
-
-            MESSAGES.post_message(embed_msg)
-
-
-DEADLINE_CATCHER = ThreadingHTTPServer((IP,SECRET.internal_http_port),RequestHandler)
-
-def run_server():
-    DEADLINE_CATCHER.serve_forever()
-
-
-SERVER_THREAD = threading.Thread(target=run_server)
 
 async def server_task():
     await client.wait_until_ready()
-    channel: discord.TextChannel = client.get_channel(1194649493501653173)
+    channel: discord.TextChannel = client.get_channel(SECRET.channel)
     while not client.is_closed():
         if MESSAGES.has_messages:
             await asyncio.wait([message.create_async_task(channel) for message in MESSAGES.messages])
@@ -704,8 +574,6 @@ async def on_ready():
     # When client is ready, register command tree
     await tree.sync(guild=GUILD)
     
-SERVER_THREAD.start()
 
-client.run(token=SECRET.bot_token)
-DEADLINE_CATCHER.shutdown()
-SERVER_THREAD.join()
+with DeadlineHTTPCatcher() as srv:
+    client.run(token=SECRET.bot_token)
