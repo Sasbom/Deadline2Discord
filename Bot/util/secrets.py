@@ -41,4 +41,6 @@ class Secrets(metaclass=SingletonMetaClass):
                 json.dump(data,f,indent="  ")
                 print(f"Created {os.path.abspath(path)}, please fill it out with the right data!")
             sys.exit(0)
+
         
+Secret = Secrets("./secrets.json")

@@ -20,9 +20,9 @@ from tinydb import TinyDB, Query
 
 from Deadline.DeadlineConnect import DeadlineCon
 
-from util.secrets import Secrets
+import util.secrets
 
-SECRET = Secrets(f"{__file__}/../secrets.json")
+SECRET = secrets.Secret
 GUILD = discord.Object(id=SECRET.guild)
 
 # Establish connection with deadline server
