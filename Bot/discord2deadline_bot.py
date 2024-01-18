@@ -547,7 +547,7 @@ async def create_prismproject(interaction: discord.Interaction, prism_project: s
     if p is not None:
         interaction.response.send_message(f"Prism project `{prism_project}` is already present in the system.",ephemeral=True)
     else:
-        DB.insert({"prism_name" = prism_project, "subscribed_users" = "", "is_locked" = "False", "prism_owner" = user})
+        DB.insert({"prism_name" : prism_project, "subscribed_users" : "", "is_locked" : "False", "prism_owner" : user})
         interaction.response.send_message(f"Registered Prism project `{prism_project}` in the system, with you ,`@{user}` being the owner.",ephemeral=True)
 
 
