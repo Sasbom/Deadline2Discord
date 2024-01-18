@@ -169,7 +169,7 @@ def get_user_pingable(username: str):
     return bool(id)
 
 # testing out an embed.
-embed_msg = discord.Embed(title="Deadline bot v0.1\nby Sas van Gulik; @sasbom",
+embed_msg = discord.Embed(title="Deadline bot v0.2\nby Sas van Gulik; @sasbom",
                           description="Discord integration for AWS Thinkbox Deadline :brain:", color=DEADLINE_ORANGE)
 MESSAGES.post_message(embed_msg)
 # end embed test
@@ -658,6 +658,54 @@ async def lock_prismproject(interaction: discord.Interaction, prism_project: str
         interaction.response.send_message(f"No records of Prism project `{prism_project}` found.",ephemeral=True)
 
 
+@prism_group.command(
+    name = "list",
+    description="List all registered Prism projects, their owners, and their subscribers."
+)
+async def list_prismprojects(interaction: discord.Interaction):
+    prism_project = prism_project.strip() # normalize name    
+    projects = Query()
+    search_in = lambda s : s != ""
+    prism_info = DB.search(projects.prism_name.test(search_in))
+    if prism_info:
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        response_txt = ["### All Prism projects in the system:"]
+        for p in prism_info:
+            locked = "`Locked` :locked:" if p["is_locked"] == "True" else "`Unlocked` :unlock:"
+            owner = p["prism_owner"]
+            subs = ", ".join(p["subscribed_users"].split(",")) if p["subscribed_users"] else "No one has subbed yet..."
+            response_txt.append(f"> `{p['prism_name']}`,  Owned by: `{owner}`, {locked}\n> - Subscribers: `{subs}`\n")
+        await interaction.followup.send("\n".join(response_txt))
+    else:
+        await interaction.response.send_message(f"No Prism projects were found. :skull:",ephemeral=True) 
+        
+
+@prism_group.command(
+    name="help",
+    description="Help page for /prism commands, also availale in dutch with nederlands = True"
+)
+async def job_help(interaction: discord.Interaction, nederlands: Optional[bool] = False):
+    if not nederlands:
+        help_txt = "**All /prism commands, explained.**\n\n\
+                    **/prism register:** Register a Prism project with you as the owner.\n\
+                    **/prism deregister:** If you are the owner of a Prism project, deregister it\n\n\
+                    **/prism subscribe:** Subscribe to a Prism project. If you are in this list, any completed job within the project will ping you.\n\
+                    **/prism unsubscribe:** Unsubscribe from a project. No more pings!\n\n\
+                    **/prism lock:** Locks a project from getting new subscribers. Can only be done if you own the project.\n\
+                    **/prism unlock:** Unlocks a project, allowing subscribers again. Can only be done if you own the project.\n\n\
+                    **/prism list:** List all registered prism projects."
+    else:
+        help_txt = "**Alle /prism commands, uitgelegd.**\n\n\
+                    **/prism register:** Registreer een Prism project, met jou als eigenaar.\n\
+                    **/prism deregister:**Als je de eigenaar bent van een Prism project, haal 'm uit het systeem.\n\n\
+                    **/prism subscribe:** Meld je aan om gepingt te worden voor alle renders uit dit Prism project.\n\
+                    **/prism unsubscribe:** Meld je af van een Prism project. Geen pings meer!\n\n\
+                    **/prism lock:** Zet een project op slot. Als je de eigenaar bent, voorkom je zo ongewenste registraties.\n\
+                    **/prism unlock:** Hal een project van slot. Als je de eigenaar bent, kan je zo mensen weer de optie geven om aan te melden.\n\n\
+                    **/prism list:** Laat alle geregistreerde prism projecten zien!"
+    embed = discord.Embed(title="Prism help",color=DEADLINE_ORANGE, description=help_txt)
+    await interaction.response.send_message(embed=embed,ephemeral=True)
+
 calc_group = app_commands.Group(name="calculate",description="Calculate things!")
 
 @calc_group.command(
@@ -697,6 +745,7 @@ async def calculate_frames_fromseconds(interaction: discord.Interaction,
     await interaction.response.send_message(message,ephemeral=True)
 
 tree.add_command(job_group,guild=GUILD)
+tree.add_command(prism_group,guild=GUILD) # prism integration
 tree.add_command(calc_group,guild=GUILD)
 
 @client.event
