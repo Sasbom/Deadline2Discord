@@ -47,5 +47,6 @@ dump.sql
 test_localsystem.txt
 
 util/destination.txt
+util/test_request.py
 Bot/register.db
 Bot/secrets.json

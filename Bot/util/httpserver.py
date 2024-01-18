@@ -105,6 +105,18 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             
             MESSAGES.post_message(f"{data_dict['message'][0]} - :calendar:{get_timestamp_now()}")
+        elif "request_prismusers" in data_dict.keys():
+            print(f"Recieved request for users associated with Prism project {data_dict["request_prismusers"][0]}")
+            users = ""
+            prism_project_name = data_dict["request_prismusers"][0]
+
+            prism_project = Query()
+            p = DB.get(prism_project.prism_name = prism_project_name)
+            if p is not None:
+                users = p["subscribed_users"]
+            
+            self.wfile.write(users.encode())
+
         else:
             data_dict = {k : v[0] for k, v in data_dict.items()} # get first of all.
             embed, tag_txt, file, filename = compose_resultembed(data_dict=data_dict)
