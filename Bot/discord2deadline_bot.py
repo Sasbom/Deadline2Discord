@@ -611,7 +611,7 @@ async def user_leave_prismproject(interaction: discord.Interaction, prism_projec
             interaction.response.send_message(f"You are not subscribed to `{prism_project}`.",ephemeral=True)
         elif user in users:
             users = [u for u in users if not u == user] # Recompose list without user in it
-            DB.update({"subscribed_users" = ",".join(users)}, project.prism_name = prism_project)         
+            DB.update({"subscribed_users" : ",".join(users)}, project.prism_name == prism_project)         
             interaction.response.send_message(f"Succesfully unsubscribed from `{prism_project}`!",ephemeral=True)
     elif p is not None and p["is_locked"] == "True":
         interaction.response.send_message(f"Prism Project: `{prism_project}` is not able to be unsubscribed from, because the owner locked it.",ephemeral=True)
