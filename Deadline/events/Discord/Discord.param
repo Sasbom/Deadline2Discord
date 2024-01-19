@@ -18,7 +18,7 @@ Default=AB69
 Description=<html><head/><body><p>Server Hostname to send messages to.</p></body></html>
 
 [ServerPort]
-Type=int
+Type=string
 Category=Options
 CategoryOrder=0
 CategoryIndex=3

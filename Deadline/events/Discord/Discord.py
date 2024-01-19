@@ -21,6 +21,10 @@ from Deadline.Scripting import ClientUtils
 
 REGEX_FILE = re.compile(r"([\w]+)_([#]+).([\w]+)")
 
+def _log_msg_to_server(message):
+    with open(R"X:\_DEPLOY\log\dline_log.txt","a") as f:
+        f.write(f"{message}\n")
+
 def log_to_server(message, ip, port, extra_info = None):
     _adress = f"http://{ip}:{port}"
     _dict = {"message" : message}
@@ -51,6 +55,7 @@ def request_prism_users(prism_project_name: str, ip: str, port):
     try:
         with request.urlopen(_request) as result:
             users = result.read().decode()
+            print(users,prism_project_name)
         return users 
     except:
         print("it ain't workin' chief")
@@ -93,6 +98,9 @@ class DiscordEventListener(DeadlineEventListener):
         self._port = self.get_port()
         self.LogStdout("Discord event plugin noticed that a job has started")
 
+        prism_file = job.GetJobEnvironmentKeyValue("prism_project")
+        self.LogStdout("prism file " + str(prism_file))
+
         owner = get_owner(job, self._ip, self._port)
     
         log_to_server(f"A job, `{job.JobName}`, has started!",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": owner, "time" : str(int(time.time()))})
@@ -102,7 +110,7 @@ class DiscordEventListener(DeadlineEventListener):
         self._ip = self.get_ip()
         self._port = self.get_port()
         self.LogStdout("Discord event plugin noticed that a job has finished")
-        log_jobinfo_to_server(job,self._ip)
+        log_jobinfo_to_server(job,self._ip,self._port)
         pass
 
     def OnJobRequeued(self, job: Job):
@@ -141,7 +149,8 @@ def compose_job_dict(job: Job, ip, port):
         "tasks" : str(job.JobTaskCount),
         "status" : job.JobStatus,
         "id" : job.JobId,
-        "thumbnail" : get_thumbnail(job),
+        #"thumbnail" : get_thumbnail(job),
+        "thumbnail" : "",
         "ping" : owner
     }
 
@@ -149,12 +158,17 @@ def get_imagepaths(job: Job):
     dir = job.JobOutputDirectories[0]
     
     fname = job.GetJobInfoKeyValue("OutputFilename0")
-    print(fname)
+    if not fname or not dir:
+        return None
+
+    print(f"output? {fname}")
     fname_match = re.match(REGEX_FILE,fname)
     strlookup = None
     if fname_match is not None:
         strlookup = fname_match.group(1)
         print(strlookup)
+
+    _log_msg_to_server(f"{dir}\n{fname}\n{strlookup}")
 
     out = []
     for dpath, dname, fnames in os.walk(dir):
@@ -164,11 +178,15 @@ def get_imagepaths(job: Job):
             out.extend([os.path.join(dir,f) for f in fnames])
         break
 
+    _log_msg_to_server(f"{out}")
+
     return out
 
 def get_thumbnail(job: Job):
     paths = get_imagepaths(job)
-    return paths[int(len(paths)/2)]
+    if paths:
+        return paths[int(len(paths)/2)]
+    return ""
 
 def compose_poolstring(pool: str, secondary_pool: str = None):
     if secondary_pool:
@@ -184,11 +202,14 @@ def CleanupDeadlineEventListener(event_listener: DiscordEventListener):
 
 def detect_prism_job(job: Job):
     prism_file = job.GetJobEnvironmentKeyValue("prism_project")
+    _log_msg_to_server(prism_file)
     if not prism_file:
         return None
     project_name = None
+    _log_msg_to_server("accessing prism file")
     with open(prism_file,"r") as f:
         data = json.load(f)
+        _log_msg_to_server(f"{data}")
         project_name = data["globals"]["project_name"]
 
     return project_name
@@ -198,6 +219,9 @@ def get_owner(job : Job, ip, port):
     if owner == "None":
         # Chance it might be a prism job.
         if prism_name := detect_prism_job(job):
+            print("getting prism users")
             owner = request_prism_users(prism_name,ip,port)
         else:
             owner = "everyone"
+
+    return owner

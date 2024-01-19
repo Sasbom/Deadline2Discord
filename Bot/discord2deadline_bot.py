@@ -104,6 +104,16 @@ def dictify_dline_cmdout(out: str) -> dict:
     obj = obj + '}'
     return ast.literal_eval(f"{obj}")
 
+def fix_path(path):
+    path = path.replace("\r","/r")
+    path = path.replace("\t","/t")
+    for i in range(99):
+        if i < 10:
+            path = path.replace(f"\{i}",f"/{i}")
+        path = path.replace(f"\{i:02d}",f"/{i:02d}")
+    path = path.replace("\\","/")
+    return path
+
 def get_job_cmd(jobid):
     job_proc = subprocess.run([DEADLINE_CMD, "-JobSubmissionInfoFromJob", str(jobid)],capture_output=True, text=True)
     job_out = job_proc.stdout
@@ -165,7 +175,7 @@ def compose_resultembed(data_dict : dict[str,str]) -> tuple[discord.Embed, str, 
 
 def get_user_pingable(username: str):
     user = Query()
-    id = DB.get(user.name == name)
+    id = DB.get(user.name == username)
     return bool(id)
 
 # testing out an embed.
@@ -244,7 +254,13 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
 
     directory = job_dict["OutputDirectory0"]
     filename = job_dict["OutputFilename0"]
-    scene_file = plugin_dict["SceneFile"]
+    
+    scene_file = "No scene file could be extracted."
+    if "SceneFile" in plugin_dict.keys():
+        scene_file = plugin_dict["SceneFile"]
+    elif "EnvironmentKeyValue1" in job_dict.keys():
+        scene_file = job_dict["EnvironmentKeyValue1"].split("=")[1]
+    scene_file = fix_path(scene_file)
 
     # Use running time to approximate time left
     if render_time == "Not done yet.":
@@ -545,10 +561,10 @@ async def create_prismproject(interaction: discord.Interaction, prism_project: s
     project = Query()
     p = DB.get(project.prism_name == prism_project)
     if p is not None:
-        interaction.response.send_message(f"Prism project `{prism_project}` is already present in the system.",ephemeral=True)
+        await interaction.response.send_message(f"Prism project `{prism_project}` is already present in the system.",ephemeral=True)
     else:
         DB.insert({"prism_name" : prism_project, "subscribed_users" : "", "is_locked" : "False", "prism_owner" : user})
-        interaction.response.send_message(f"Registered Prism project `{prism_project}` in the system, with you ,`@{user}` being the owner.",ephemeral=True)
+        await interaction.response.send_message(f"Registered Prism project `{prism_project}` in the system, with you ,`@{user}` being the owner.",ephemeral=True)
 
 
 @prism_group.command(
@@ -564,11 +580,11 @@ async def remove_prismproject(interaction: discord.Interaction, prism_project: s
     if p is not None and (p["prism_owner"] == user or is_admin):
         DB.remove(project.prism_name == prism_project)
         admin_msg = "`Admin override`: " if (p["prism_owner"] != user and is_admin) else ""
-        interaction.response.send_message(f"{admin_msg}Prism project `{prism_project}` has been removed from the system.",ephemeral=True)
+        await interaction.response.send_message(f"{admin_msg}Prism project `{prism_project}` has been removed from the system.",ephemeral=True)
     elif p is not None and (p["prism_owner"] != user or not is_admin):   
-        interaction.response.send_message(f"Prism project `{prism_project}` is not yours! You can't remove it.",ephemeral=True)
+        await interaction.response.send_message(f"Prism project `{prism_project}` is not yours! You can't remove it.",ephemeral=True)
     else:
-        interaction.response.send_message(f"No records of Prism project `{prism_project}` found.",ephemeral=True)
+        await interaction.response.send_message(f"No records of Prism project `{prism_project}` found.",ephemeral=True)
 
         
 @prism_group.command(
@@ -579,21 +595,21 @@ async def user_join_prismproject(interaction: discord.Interaction, prism_project
     prism_project = prism_project.strip() # normalize name
     user = interaction.user.name
     if not get_user_pingable(user):
-        interaction.response.send_message(f"To perform this action, you must register yourself first!\nUse `/register` to register your username to be pingable.",ephemeral=True)
+        await interaction.response.send_message(f"To perform this action, you must register yourself first!\nUse `/register` to register your username to be pingable.",ephemeral=True)
     project = Query()
     p = DB.get(project.prism_name == prism_project)
     if p is not None and p["is_locked"] == "False":
-        users: list[str] = p["subscribed_users"].split(",")
+        users: list[str] = p["subscribed_users"].split(",") if p["subscribed_users"] else []
         if user in users:
-            interaction.response.send_message(f"You are already subscribed to `{prism_project}`.",ephemeral=True)
+            await interaction.response.send_message(f"You are already subscribed to `{prism_project}`.",ephemeral=True)
         else:
             users.append(user)
             DB.update({"subscribed_users" : ",".join(users)}, project.prism_name == prism_project)
-            interaction.response.send_message(f"Succesfully subscribed to `{prism_project}`!",ephemeral=True)
+            await interaction.response.send_message(f"Succesfully subscribed to `{prism_project}`!",ephemeral=True)
     elif p is not None and p["is_locked"] == "True":
-        interaction.response.send_message(f"Prism Project: `{prism_project}` is not able to be subscribed to, because the owner locked it.",ephemeral=True)
+        await interaction.response.send_message(f"Prism Project: `{prism_project}` is not able to be subscribed to, because the owner locked it.",ephemeral=True)
     else:
-        interaction.response.send_message(f"Register Prism project `{prism_project}` before subscribing to it!",ephemeral=True)
+       await  interaction.response.send_message(f"Register Prism project `{prism_project}` before subscribing to it!",ephemeral=True)
 
 
 @prism_group.command(
@@ -608,15 +624,15 @@ async def user_leave_prismproject(interaction: discord.Interaction, prism_projec
     if p is not None and p["is_locked"] == "False":
         users: list[str] = p["subscribed_users"].split(",")
         if user not in users:
-            interaction.response.send_message(f"You are not subscribed to `{prism_project}`.",ephemeral=True)
+            await interaction.response.send_message(f"You are not subscribed to `{prism_project}`.",ephemeral=True)
         elif user in users:
             users = [u for u in users if not u == user] # Recompose list without user in it
             DB.update({"subscribed_users" : ",".join(users)}, project.prism_name == prism_project)         
-            interaction.response.send_message(f"Succesfully unsubscribed from `{prism_project}`!",ephemeral=True)
+            await interaction.response.send_message(f"Succesfully unsubscribed from `{prism_project}`!",ephemeral=True)
     elif p is not None and p["is_locked"] == "True":
-        interaction.response.send_message(f"Prism Project: `{prism_project}` is not able to be unsubscribed from, because the owner locked it.",ephemeral=True)
+        await interaction.response.send_message(f"Prism Project: `{prism_project}` is not able to be unsubscribed from, because the owner locked it.",ephemeral=True)
     else:
-        interaction.response.send_message(f"Register Prism project `{prism_project}` before subscribing to it!",ephemeral=True)
+       await  interaction.response.send_message(f"Register Prism project `{prism_project}` before subscribing to it!",ephemeral=True)
 
 
 @prism_group.command(
@@ -632,11 +648,11 @@ async def lock_prismproject(interaction: discord.Interaction, prism_project: str
     if p is not None and (p["prism_owner"] == user or is_admin):
         DB.update({"is_locked" : "True"},project.prism_name == prism_project)
         admin_msg = "`Admin override`: " if (p["prism_owner"] != user and is_admin) else ""
-        interaction.response.send_message(f"{admin_msg}Prism project `{prism_project}` has been locked!\nNo one can subscribe/unsubscribe anymore.",ephemeral=True)
+        await interaction.response.send_message(f"{admin_msg}Prism project `{prism_project}` has been locked!\nNo one can subscribe/unsubscribe anymore.",ephemeral=True)
     elif p is not None and (p["prism_owner"] != user or not is_admin):   
-        interaction.response.send_message(f"Prism project `{prism_project}` is not yours! You can't lock it.",ephemeral=True)
+        await interaction.response.send_message(f"Prism project `{prism_project}` is not yours! You can't lock it.",ephemeral=True)
     else:
-        interaction.response.send_message(f"No records of Prism project `{prism_project}` found.",ephemeral=True)
+        await interaction.response.send_message(f"No records of Prism project `{prism_project}` found.",ephemeral=True)
 
 @prism_group.command(
     name = "unlock",
@@ -651,19 +667,18 @@ async def lock_prismproject(interaction: discord.Interaction, prism_project: str
     if p is not None and (p["prism_owner"] == user or is_admin):
         DB.update({"is_locked" : "False"},project.prism_name == prism_project)
         admin_msg = "`Admin override`: " if (p["prism_owner"] != user and is_admin) else ""
-        interaction.response.send_message(f"{admin_msg}Prism project `{prism_project}` has been unlocked!\nPeople can subscribe/unsubscribe again.",ephemeral=True)
+        await interaction.response.send_message(f"{admin_msg}Prism project `{prism_project}` has been unlocked!\nPeople can subscribe/unsubscribe again.",ephemeral=True)
     elif p is not None and (p["prism_owner"] != user or not is_admin):   
-        interaction.response.send_message(f"Prism project `{prism_project}` is not yours! You can't unlock it.",ephemeral=True)
+        await interaction.response.send_message(f"Prism project `{prism_project}` is not yours! You can't unlock it.",ephemeral=True)
     else:
-        interaction.response.send_message(f"No records of Prism project `{prism_project}` found.",ephemeral=True)
+        await interaction.response.send_message(f"No records of Prism project `{prism_project}` found.",ephemeral=True)
 
 
 @prism_group.command(
     name = "list",
     description="List all registered Prism projects, their owners, and their subscribers."
 )
-async def list_prismprojects(interaction: discord.Interaction):
-    prism_project = prism_project.strip() # normalize name    
+async def list_prismprojects(interaction: discord.Interaction):   
     projects = Query()
     search_in = lambda s : s != ""
     prism_info = DB.search(projects.prism_name.test(search_in))
