@@ -103,13 +103,14 @@ class DiscordEventListener(DeadlineEventListener):
 
         owner = get_owner(job, self._ip, self._port)
     
-        log_to_server(f"A job, `{job.JobName}`, has started!",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": owner, "time" : str(int(time.time()))})
+        log_to_server(f"A job, `{job.JobName}`, has started!",self._ip,self._port,{"id" : job.JobId, "name" : job.JobName, "owner": owner, "time" : str(int(time.time()))})
         pass
     
     def OnJobFinished(self, job: Job):
         self._ip = self.get_ip()
         self._port = self.get_port()
         self.LogStdout("Discord event plugin noticed that a job has finished")
+        #_log_msg_to_server(f"finished: {job.JobName}")
         log_jobinfo_to_server(job,self._ip,self._port)
         pass
 
@@ -120,7 +121,7 @@ class DiscordEventListener(DeadlineEventListener):
         owner = get_owner(job, self._ip, self._port)
 
         self.LogStdout("Discord event plugin noticed that a job has been requeued")
-        log_to_server(f"Deadline noticed that `{job.JobName}` has been requeued",self._ip,{"id" : job.JobId, "name" : job.JobName, "owner": owner})
+        log_to_server(f"Deadline noticed that `{job.JobName}` has been requeued",self._ip,self._port,{"id" : job.JobId, "name" : job.JobName, "owner": owner})
         pass
 
     def OnJobFailed(self, job: Job):
@@ -149,9 +150,8 @@ def compose_job_dict(job: Job, ip, port):
         "tasks" : str(job.JobTaskCount),
         "status" : job.JobStatus,
         "id" : job.JobId,
-        #"thumbnail" : get_thumbnail(job),
-        "thumbnail" : "",
-        "ping" : owner
+        "thumbnail" : str(get_thumbnail(job)),
+        "ping" : str(owner)
     }
 
 def get_imagepaths(job: Job):
@@ -185,6 +185,8 @@ def get_imagepaths(job: Job):
 def get_thumbnail(job: Job):
     paths = get_imagepaths(job)
     if paths:
+        if len(paths) == 1:
+            return paths[0]
         return paths[int(len(paths)/2)]
     return ""
 

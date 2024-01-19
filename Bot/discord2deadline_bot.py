@@ -78,9 +78,12 @@ def seconds_to_hms(seconds: int):
     return f"{int(h):02d} hr, {int(m):02d} min, {int(s):02d} sec."
 
 def get_job_status(jobid):
-    details = CON.Jobs.GetJobDetails(jobid)
-    json_details = ast.literal_eval(f"{details}")
-    return json_details[jobid]["Job"]["Status"]
+    try:
+        details = CON.Jobs.GetJobDetails(jobid)
+        json_details = ast.literal_eval(f"{details}")
+        return json_details[jobid]["Job"]["Status"]
+    except:
+        return None
 
 def get_job(jobid):
     details = CON.Jobs.GetJob(jobid)
@@ -252,15 +255,15 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
     status = get_job_status(job_id)
     job_dict, plugin_dict = get_job_cmd(job_id)
 
-    directory = job_dict["OutputDirectory0"]
-    filename = job_dict["OutputFilename0"]
+    directory = os.path.normpath(job_dict["OutputDirectory0"]).replace("\\","/")
+    filename = os.path.normpath(job_dict["OutputFilename0"]).replace("\\","/")
     
     scene_file = "No scene file could be extracted."
     if "SceneFile" in plugin_dict.keys():
         scene_file = plugin_dict["SceneFile"]
     elif "EnvironmentKeyValue1" in job_dict.keys():
         scene_file = job_dict["EnvironmentKeyValue1"].split("=")[1]
-    scene_file = fix_path(scene_file)
+    scene_file = os.path.normpath(scene_file).replace("\\","/")
 
     # Use running time to approximate time left
     if render_time == "Not done yet.":
@@ -468,11 +471,12 @@ async def renderjob_showmine(interaction: discord.Interaction):
         response_txt = ["### All jobs found in your name:"]
         for job in job_info:
             status = get_job_status(job["job_id"])
+            if status is None:
+                status = "Job is not present on server anymore."
             response_txt.append(f"> `{job['job_name']}`,  Status: **{status}**")
         await interaction.followup.send("\n".join(response_txt))
     else:
         await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
-
 
 
 @job_group.command(
