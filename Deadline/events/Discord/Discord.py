@@ -21,9 +21,9 @@ from Deadline.Scripting import ClientUtils
 
 REGEX_FILE = re.compile(r"([\w]+)_([#]+).([\w]+)")
 
-def _log_msg_to_server(message):
-    with open(R"X:\_DEPLOY\log\dline_log.txt","a") as f:
-        f.write(f"{message}\n")
+# def _log_msg_to_server(message):
+#     with open(R"X:\_DEPLOY\log\dline_log.txt","a") as f:
+#         f.write(f"{message}\n")
 
 def log_to_server(message, ip, port, extra_info = None):
     _adress = f"http://{ip}:{port}"
@@ -168,7 +168,7 @@ def get_imagepaths(job: Job):
         strlookup = fname_match.group(1)
         print(strlookup)
 
-    _log_msg_to_server(f"{dir}\n{fname}\n{strlookup}")
+    # _log_msg_to_server(f"{dir}\n{fname}\n{strlookup}")
 
     out = []
     for dpath, dname, fnames in os.walk(dir):
@@ -178,7 +178,7 @@ def get_imagepaths(job: Job):
             out.extend([os.path.join(dir,f) for f in fnames])
         break
 
-    _log_msg_to_server(f"{out}")
+    # _log_msg_to_server(f"{out}")
 
     return out
 
@@ -204,14 +204,14 @@ def CleanupDeadlineEventListener(event_listener: DiscordEventListener):
 
 def detect_prism_job(job: Job):
     prism_file = job.GetJobEnvironmentKeyValue("prism_project")
-    _log_msg_to_server(prism_file)
+    #_log_msg_to_server(prism_file)
     if not prism_file:
         return None
     project_name = None
-    _log_msg_to_server("accessing prism file")
+    #_log_msg_to_server("accessing prism file")
     with open(prism_file,"r") as f:
         data = json.load(f)
-        _log_msg_to_server(f"{data}")
+        # _log_msg_to_server(f"{data}")
         project_name = data["globals"]["project_name"]
 
     return project_name
