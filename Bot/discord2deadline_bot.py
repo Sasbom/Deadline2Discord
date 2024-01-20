@@ -816,7 +816,7 @@ async def auto_gc(interaction: discord.Interaction, enabled: bool, hour_interval
 async def force_gc(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     channel: discord.TextChannel = client.get_channel(SECRET.channel)
-    channel.send(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:")
+    await channel.send(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:")
     garbage_collect()
     await interaction.followup.send("Forced GC cycle completed.",ephemeral=True)
 
