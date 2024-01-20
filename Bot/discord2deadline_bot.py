@@ -823,6 +823,8 @@ async def force_gc(interaction: discord.Interaction, enabled: bool, hour_interva
 tree.add_command(job_group,guild=GUILD)
 tree.add_command(prism_group,guild=GUILD) # prism integration
 tree.add_command(calc_group,guild=GUILD)
+tree.add_command(farm_group,guild=GUILD)
+tree.add_command(garbage_collect_group,guild=GUILD)
 
 @client.event
 async def on_ready():
