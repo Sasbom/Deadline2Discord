@@ -15,6 +15,7 @@ import re
 
 import discord
 from discord import app_commands
+from discord.ext.commands import has_permissions
 from tinydb import TinyDB, Query
 
 from Deadline.DeadlineConnect import DeadlineCon
@@ -196,9 +197,40 @@ async def server_task():
             await asyncio.wait([message.create_async_task(channel) for message in MESSAGES.messages])
         await asyncio.sleep(0.01)
 
+GC_AUTO_ENABLED = False
+GC_HOURS_INTERVAL = 24
+
+async def server_task_cleanup_logs():
+    await client.wait_until_ready()
+    channel: discord.TextChannel = client.get_channel(SECRET.channel)
+    while not client.is_closed():
+        if GC_AUTO_ENABLED:
+            garbage_collect()
+        await asyncio.sleep(60*60*GC_HOURS_INTERVAL) # every specified hours.
+
+def garbage_collect():
+    """
+    Garbage collection cycle. Checks if jobs have been deleted.
+    """
+    print("Starting deleted job cleaup cycle...")
+    if GC_AUTO_ENABLED:
+        MESSAGES.post_message(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:\nThis task is executed every {GC_HOURS_INTERVAL} hours, to ensure database sanity.\nAdmins can enable/disable this check with /farm garbagecollect set [True/False] [Optional Time in hours].")
+    else:
+        MESSAGES.post_message("Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:")
+    jobs = Query()
+    search_invalid = lambda s : get_job_status(s) is None
+    job_info = DB.search(jobs.job_id.test(search_invalid))
+    for job in job_info:
+        print(job["job_name"])
+        DB.remove(jobs.job_name == job["job_name"])
+    MESSAGES.post_message("Database cleaned up. Degenerate tasks removed!\n Happy rendering! :rocket:")
+    print("Finished deleted job cleanup cycle.")
+
+
 class MyClient(discord.Client):
     async def setup_hook(self):
         self.loop.create_task(server_task())
+        self.loop.create_task(server_task_cleanup_logs())
 
 intents = discord.Intents.default()
 client = MyClient(intents=intents)
@@ -762,6 +794,31 @@ async def calculate_frames_fromseconds(interaction: discord.Interaction,
     message = f"A sequence of length `{seconds_to_hms(durationsec)}` at `{fps} frames per second`,\nhas `{int(sequence_frames)} frames` total,\nand will render for `{seconds_to_hms(sequence_rendertime)}` on `{pc_amt} workers`\nwith each frame taking `{seconds_to_hms(rendersec)}`"
     
     await interaction.response.send_message(message,ephemeral=True)
+
+farm_group = app_commands.Group(name="farm",description="Manage the farm in different ways.")
+garbage_collect_group = app_commands.Group(name="garbagecollect",description="Garbage collection settings", parent=farm_group)
+
+@garbage_collect_group.command(
+    name="set",
+    description="Turn automatic garbage collection of deleted jobs on/off, and optionally set the time interval."
+)
+@has_permissions(administrator=True)
+async def auto_gc(interaction: discord.Interaction, enabled: bool, hour_interval: Optional[int] = None):
+    GC_AUTO_ENABLED = enabled
+    if hour_interval not None:
+        GC_HOURS_INTERVAL = hour_interval
+    await interaction.response.send_message(f"Garbage collection enabled: {GC_AUTO_ENABLED}\nGarbage collection interval: {GC_HOURS_INTERVAL}",ephemeral=True)
+
+@garbage_collect_group.command(
+    name="force",
+    description="Turn automatic garbage collection of deleted jobs on/off, and optionally set the time interval."
+)
+@has_permissions(administrator=True)
+async def force_gc(interaction: discord.Interaction, enabled: bool, hour_interval: Optional[int] = None):
+    await interaction.response.defer(ephemeral=True)
+    garbage_collect()
+    await interaction.followup.send("Forced GC cycle completed.",ephemeral=True)
+
 
 tree.add_command(job_group,guild=GUILD)
 tree.add_command(prism_group,guild=GUILD) # prism integration
