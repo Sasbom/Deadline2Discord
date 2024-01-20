@@ -205,6 +205,9 @@ async def server_task_cleanup_logs():
     channel: discord.TextChannel = client.get_channel(SECRET.channel)
     while not client.is_closed():
         if GC_AUTO_ENABLED:
+            channel.send(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:\n"
+                            "This task is executed every {GC_HOURS_INTERVAL} hours, to ensure database sanity.\n"
+                            "Admins can enable/disable this check with /farm garbagecollect set [True/False] [Optional Time in hours].")
             garbage_collect()
         await asyncio.sleep(60*60*GC_HOURS_INTERVAL) # every specified hours.
 
@@ -213,17 +216,13 @@ def garbage_collect():
     Garbage collection cycle. Checks if jobs have been deleted.
     """
     print("Starting deleted job cleaup cycle...")
-    if GC_AUTO_ENABLED:
-        MESSAGES.post_message(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:\nThis task is executed every {GC_HOURS_INTERVAL} hours, to ensure database sanity.\nAdmins can enable/disable this check with /farm garbagecollect set [True/False] [Optional Time in hours].")
-    else:
-        MESSAGES.post_message("Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:")
     jobs = Query()
     search_invalid = lambda s : get_job_status(s) is None
     job_info = DB.search(jobs.job_id.test(search_invalid))
     for job in job_info:
         print(job["job_name"])
         DB.remove(jobs.job_name == job["job_name"])
-    MESSAGES.post_message("Database cleaned up. Degenerate tasks removed!\n Happy rendering! :rocket:")
+    MESSAGES.post_message("Database cleaned up. Degenerate tasks removed!\nHappy rendering! :rocket:")
     print("Finished deleted job cleanup cycle.")
 
 
@@ -816,6 +815,8 @@ async def auto_gc(interaction: discord.Interaction, enabled: bool, hour_interval
 @has_permissions(administrator=True)
 async def force_gc(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
+    channel: discord.TextChannel = client.get_channel(SECRET.channel)
+    channel.send(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:")
     garbage_collect()
     await interaction.followup.send("Forced GC cycle completed.",ephemeral=True)
 
