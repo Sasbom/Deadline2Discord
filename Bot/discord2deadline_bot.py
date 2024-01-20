@@ -814,7 +814,7 @@ async def auto_gc(interaction: discord.Interaction, enabled: bool, hour_interval
     description="Turn automatic garbage collection of deleted jobs on/off, and optionally set the time interval."
 )
 @has_permissions(administrator=True)
-async def force_gc(interaction: discord.Interaction, enabled: bool, hour_interval: Optional[int] = None):
+async def force_gc(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     garbage_collect()
     await interaction.followup.send("Forced GC cycle completed.",ephemeral=True)
