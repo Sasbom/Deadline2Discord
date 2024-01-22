@@ -80,14 +80,14 @@ def seconds_to_hms(seconds: int):
 
 def get_job_status(jobid):
     try:
-        details = CON.Jobs.GetJobDetails(jobid)
+        details = CON.Jobs.GetJobDetails(jobid).replace("\\","/")
         json_details = ast.literal_eval(f"{details}")
         return json_details[jobid]["Job"]["Status"]
     except:
         return None
 
 def get_job(jobid):
-    details = CON.Jobs.GetJob(jobid)
+    details = CON.Jobs.GetJob(jobid).replace("\\","/")
     return ast.literal_eval(f"{details}")
     
 def dictify_dline_cmdout(out: str) -> dict:
@@ -106,6 +106,7 @@ def dictify_dline_cmdout(out: str) -> dict:
     obj = obj[:-1]
     
     obj = obj + '}'
+    obj = obj.replace("\\","/")
     return ast.literal_eval(f"{obj}")
 
 def fix_path(path):
