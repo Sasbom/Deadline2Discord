@@ -220,7 +220,8 @@ def get_owner(job : Job, ip, port):
     owner = job.GetJobExtraInfoKeyValueWithDefault("JobPing","None")
     if owner == "None":
         # Chance it might be a prism job.
-        if prism_name := detect_prism_job(job):
+        prism_name = detect_prism_job(job)
+        if prism_name:
             print("getting prism users")
             owner = request_prism_users(prism_name,ip,port)
         else:
