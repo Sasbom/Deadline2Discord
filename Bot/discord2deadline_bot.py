@@ -188,6 +188,8 @@ embed_msg = discord.Embed(title="Deadline bot v0.2\nby Sas van Gulik; @sasbom",
 MESSAGES.post_message(embed_msg)
 # end embed test
 
+GC_AUTO_ENABLED = False
+GC_HOURS_INTERVAL = 24
 
 async def server_task():
     await client.wait_until_ready()
@@ -197,8 +199,6 @@ async def server_task():
             await asyncio.wait([message.create_async_task(channel) for message in MESSAGES.messages])
         await asyncio.sleep(0.01)
 
-GC_AUTO_ENABLED = False
-GC_HOURS_INTERVAL = 24
 
 async def server_task_cleanup_logs():
     await client.wait_until_ready()
@@ -206,7 +206,7 @@ async def server_task_cleanup_logs():
     while not client.is_closed():
         if GC_AUTO_ENABLED:
             channel.send(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:\n"
-                            "This task is executed every {GC_HOURS_INTERVAL} hours, to ensure database sanity.\n"
+                            f"This task is executed every {GC_HOURS_INTERVAL} hours, to ensure database sanity.\n"
                             "Admins can enable/disable this check with /farm garbagecollect set [True/False] [Optional Time in hours].")
             garbage_collect()
         await asyncio.sleep(60*60*GC_HOURS_INTERVAL) # every specified hours.
