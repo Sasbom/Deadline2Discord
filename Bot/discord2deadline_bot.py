@@ -804,9 +804,11 @@ garbage_collect_group = app_commands.Group(name="garbagecollect",description="Ga
 @has_permissions(administrator=True)
 async def auto_gc(interaction: discord.Interaction, enabled: bool, hour_interval: Optional[int] = None):
     GC_AUTO_ENABLED = enabled
+    reportstr = f"Garbage collection enabled: {GC_AUTO_ENABLED}"
     if hour_interval is not None:
         GC_HOURS_INTERVAL = hour_interval
-    await interaction.response.send_message(f"Garbage collection enabled: {GC_AUTO_ENABLED}\nGarbage collection interval: {GC_HOURS_INTERVAL}",ephemeral=True)
+        reportstr += f"\nGarbage collection interval: {GC_HOURS_INTERVAL}"
+    await interaction.response.send_message(reportstr,ephemeral=True)
 
 @garbage_collect_group.command(
     name="force",
