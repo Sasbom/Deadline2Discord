@@ -460,7 +460,7 @@ async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, 
             props["Name"] = job_new_name
 
             if job_new_scenefile:
-                plug["SceneFIle"] = job_new_scenefile
+                plug["SceneFile"] = job_new_scenefile
             
             if job_new_filename:
                 props["OutputFilename0"] = job_new_filename
