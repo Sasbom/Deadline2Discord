@@ -80,7 +80,8 @@ def seconds_to_hms(seconds: int):
 
 def get_job_status(jobid):
     try:
-        details = CON.Jobs.GetJobDetails(jobid).replace("\\","/")
+        details = (CON.Jobs.GetJobDetails(jobid))
+        details = str(details).replace("\\","/")
         json_details = ast.literal_eval(f"{details}")
         return json_details[jobid]["Job"]["Status"]
     except:
@@ -513,7 +514,7 @@ async def renderjob_showmine(interaction: discord.Interaction):
 
 @job_group.command(
     name = "finish",
-    description = "Deregister a Completed/Failed job that you own."
+    description = "Deregister a Completed/Failed/Deleted job that you own."
 )
 async def job_deregister_command(interaction: discord.Interaction, job_name: str):
     name = interaction.user.name
@@ -525,7 +526,7 @@ async def job_deregister_command(interaction: discord.Interaction, job_name: str
         if name in owners or owners == "everyone":
             await interaction.response.defer(ephemeral=True,thinking=True)
             status = get_job_status(job_info["job_id"])
-            if status in ["Completed", "Failed"]:
+            if status in ["Completed", "Failed", None]:
                 DB.remove(job.job_name == job_name)
                 await interaction.followup.send(f"Unregistered `{job_name}` from internal registry!",ephemeral=True)
             else:
@@ -551,7 +552,7 @@ async def job_deregister_all(interaction: discord.Interaction):
         for job in job_info:
             status = get_job_status(job_info["job_id"])
             job_name = job_info["job_name"]
-            if status in ["Completed", "Failed"]:
+            if status in ["Completed", "Failed", None]:
                 DB.remove(job.job_name == job_name)
             response_txt.append(f"> `{job['job_name']}`")
         await interaction.followup.send(",\n".join(response_txt))

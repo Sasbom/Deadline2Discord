@@ -101,7 +101,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 DB.update({"job_id" : f"{job_id}" },job.job_name == job_name)
 
                 if job_time != "0":
-                    DB.update({"job_time" : f"{job_time}"},job.job_name == job_name)
+                    DB.update({"job_time" : f"{job_time}", "job_id" : f"{job_id}"},job.job_name == job_name)
 
             
             MESSAGES.post_message(f"{data_dict['message'][0]} - :calendar:{get_timestamp_now()}")
