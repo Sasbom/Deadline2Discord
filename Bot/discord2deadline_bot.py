@@ -248,7 +248,7 @@ async def server_task_suspensionmanager():
                 if time_now.hour == hours and time_now.minute == minutes:
                     CON.Jobs.ResumeJob(job_id)
                     DB.update({"resumeflag" : "True"},jobs.job_id == job_id)
-            elif: resumeflag == "True":
+            elif resumeflag == "True":
                 hours, minutes = [int(i) for i in suspendtime.split(":")]
                 if time_now.hour == hours and time_now.minute == minutes:
                     CON.Jobs.SuspendJob(job_id)
