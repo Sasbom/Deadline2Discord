@@ -235,7 +235,7 @@ async def server_task_suspensionmanager():
     job_q = Query()
     while not client.is_closed():
         time_now = datetime.datetime.now()
-        jobs = DB.search(jobs.resumeflag.exists())
+        jobs = DB.search(job_q.resumeflag.exists())
 
         for j in jobs:
             suspendtime = j["suspendtime"]
