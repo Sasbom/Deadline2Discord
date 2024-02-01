@@ -233,6 +233,8 @@ async def server_task_suspensionmanager():
     await client.wait_until_ready()
     channel: discord.TextChannel = client.get_channel(SECRET.channel)
     job_q = Query()
+
+    from tinydb import where
     while not client.is_closed():
         time_now = datetime.datetime.now()
         jobs = DB.search(job_q.resumeflag.exists())
@@ -247,12 +249,12 @@ async def server_task_suspensionmanager():
                 hours, minutes = [int(i) for i in resumetime.split(":")]
                 if time_now.hour == hours and time_now.minute == minutes:
                     CON.Jobs.ResumeJob(job_id)
-                    DB.update({"resumeflag" : "True"},jobs.job_id == job_id)
+                    DB.update({"resumeflag" : "True"},where("job_id") == job_id)
             elif resumeflag == "True":
                 hours, minutes = [int(i) for i in suspendtime.split(":")]
                 if time_now.hour == hours and time_now.minute == minutes:
                     CON.Jobs.SuspendJob(job_id)
-                    DB.update({"resumeflag" : "False"},jobs.job_id == job_id)
+                    DB.update({"resumeflag" : "False"},where("job_id") == job_id)
         await asyncio.sleep(10)
 
 class MyClient(discord.Client):
