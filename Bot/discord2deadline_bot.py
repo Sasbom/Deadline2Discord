@@ -44,6 +44,7 @@ REGEX_FLOAT = re.compile(r"\d+[.]?[\d+]?")
 REGEX_TIME_HHMMSS = re.compile(r"\d{1,}[:][0-5]{1}\d{1}[:][0-5]{1}\d{1}")
 REGEX_TIME_MMSS = re.compile(r"[0-5]{0,1}\d{1}[:][0-5]{1}\d{1}")
 REGEX_FRAMERANGE = re.compile(r"(?:[\d]+\s*\-{1}\s*[\d]+|[\d]+)")
+REGEX_TIME_HHMM = re.compile(r"(?:[2][0-3]:[0-5][\d]|[0-1]?[\d]:[0-5][\d])")
 
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
@@ -228,10 +229,37 @@ def garbage_collect():
     print("Finished deleted job cleanup cycle.")
 
 
+async def server_task_suspensionmanager():
+    await client.wait_until_ready()
+    channel: discord.TextChannel = client.get_channel(SECRET.channel)
+    job_q = Query()
+    while not client.is_closed():
+        time_now = datetime.datetime.now()
+        jobs = DB.search(jobs.resumeflag.exists())
+
+        for j in jobs:
+            suspendtime = j["suspendtime"]
+            resumetime = j["resumetime"]
+            resumeflag = j["resumeflag"] # is "True" if job is running
+            job_id = j[job_id]
+
+            if resumeflag == "False":
+                hours, minutes = [int(i) for i in resumetime.split(":")]
+                if time_now.hour == hours and time_now.minute == minutes:
+                    CON.Jobs.ResumeJob(job_id)
+                    DB.update({"resumeflag" : "True"},jobs.job_id == job_id)
+            elif: resumeflag == "True":
+                hours, minutes = [int(i) for i in suspendtime.split(":")]
+                if time_now.hour == hours and time_now.minute == minutes:
+                    CON.Jobs.SuspendJob(job_id)
+                    DB.update({"resumeflag" : "False"},jobs.job_id == job_id)
+        await asyncio.sleep(10)
+
 class MyClient(discord.Client):
     async def setup_hook(self):
         self.loop.create_task(server_task())
         self.loop.create_task(server_task_cleanup_logs())
+        self.loop.create_task(server_task_suspensionmanager())
 
 intents = discord.Intents.default()
 client = MyClient(intents=intents)
@@ -522,6 +550,68 @@ async def renderjob_showmine(interaction: discord.Interaction):
     else:
         await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
 
+
+activehours_group = app_commands.Group(name="activehours",description="Options for active hours of job",parent=job_group)
+
+@activehours_group.command(
+    name="set",
+    description="Set active hours of this job in military time, 06:00 for 6 am, and 19:30 for half past 7 pm."
+)
+async def job_set_activehours(interaction: discord.Interaction, job_name: str, time_suspend: str = "08:00", time_resume: str = "19:00"):
+    name = interaction.user.name
+    
+    if not re.fullmatch(REGEX_TIME_HHMM,time_suspend):
+        await interaction.response.send_message(f"Suspend time improperly formatted. `{time_suspend}` doesn't conform to HH:MM, 6:00, 00:00, 23:59, etc.",ephemeral=True)
+        return
+    if not re.fullmatch(REGEX_TIME_HHMM,time_resume):
+        await interaction.response.send_message(f"Resume time improperly formatted. `{time_resume}` doesn't conform to HH:MM, 6:00, 00:00, 23:59, etc.",ephemeral=True)
+        return
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    if job_info:
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            await interaction.response.defer(ephemeral=True,thinking=True)
+            import tinydb.operations as dbop
+            status = get_job_status(job_info["job_id"])
+            flag = "True" if status not "Suspended" else "False"
+            DB.update(dbop.set("resumetime",time_resume),job.job_name == job_name)
+            DB.update(dbop.set("suspendtime",time_suspend),job.job_name == job_name)
+            DB.update(dbop.set("resumeflag",flag),job.job_name == job_name)
+            await interaction.followup.send(f"Set `{job_name}` to activate at `{time_resume}` and pause at `{time_suspend}`.",ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+
+
+@activehours_group.command(
+    name="clear",
+    description="Remove task from automatic suspension/resuming scheduling"
+)
+async def job_set_activehours(interaction: discord.Interaction, job_name: str):
+    name = interaction.user.name
+    
+    job = Query()
+    job_info = DB.get(job.job_name == job_name)
+    if job_info:
+        owners = job_info["job_owner"]
+        if name in owners or owners == "everyone":
+            await interaction.response.defer(ephemeral=True,thinking=True)
+            import tinydb.operations as dbop
+            try:
+                DB.update(dbop.delete("resumetime"),job.job_name == job_name)
+                DB.update(dbop.delete("suspendtime"),job.job_name == job_name)
+                DB.update(dbop.delete("resumeflag"),job.job_name == job_name)
+            except BaseException as e:
+                print(e)
+            await interaction.followup.send(f"Set `{job_name}` to no longer be susceptible to suspension/resuming scheduling.",ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
+        
 
 @job_group.command(
     name = "finish",
