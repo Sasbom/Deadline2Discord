@@ -575,7 +575,7 @@ async def job_set_activehours(interaction: discord.Interaction, job_name: str, t
             await interaction.response.defer(ephemeral=True,thinking=True)
             import tinydb.operations as dbop
             status = get_job_status(job_info["job_id"])
-            flag = "True" if not status "Suspended" else "False"
+            flag = "True" if not status == "Suspended" else "False"
             DB.update(dbop.set("resumetime",time_resume),job.job_name == job_name)
             DB.update(dbop.set("suspendtime",time_suspend),job.job_name == job_name)
             DB.update(dbop.set("resumeflag",flag),job.job_name == job_name)
