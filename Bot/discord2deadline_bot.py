@@ -241,7 +241,7 @@ async def server_task_suspensionmanager():
             suspendtime = j["suspendtime"]
             resumetime = j["resumetime"]
             resumeflag = j["resumeflag"] # is "True" if job is running
-            job_id = j[job_id]
+            job_id = j["job_id"]
 
             if resumeflag == "False":
                 hours, minutes = [int(i) for i in resumetime.split(":")]
