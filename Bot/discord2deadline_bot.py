@@ -441,7 +441,13 @@ async def renderjob_suspend(interaction: discord.Interaction, job_name: str):
     name="reschedule",
     description="Reschedule existing job as a new job. Can take a fair bit."
 )
-async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, job_new_name: str, job_new_scenefile: Optional[str] = None, job_new_filename: Optional[str] = None,job_new_directory: Optional[str] = None,job_new_frames: Optional[str] = None):
+async def renderjob_reschedule(interaction: discord.Interaction, 
+                               job_name: str, job_new_name: str, 
+                               job_new_scenefile: Optional[str] = None, 
+                               job_new_filename: Optional[str] = None,
+                               job_new_directory: Optional[str] = None,
+                               job_new_frames: Optional[str] = None,
+                               submit_suspended: Optional[bool] = None):
     name = interaction.user.name
     
     job = Query()
@@ -480,8 +486,13 @@ async def renderjob_reschedule(interaction: discord.Interaction, job_name: str, 
                     
 
             plug["OutputFile"] = os.path.join(props["OutputDirectory0"],props["OutputFilename0"])
+                
+            newjob = CON.Jobs.SubmitJob(props,plug)
+            if submit_suspended:
+                newjob_dict = ast.literal_eval(f"{newjob}")
+                print("putting", newjob_dict["_id"], "in suspended state")
+                CON.Jobs.SuspendJob(newjob_dict["_id"])
 
-            CON.Jobs.SubmitJob(props,plug)
 
             await interaction.followup.send(f"Requested to reschedule tasks in `{job_name}` as `{job_new_name}`.",ephemeral=True)
         else:
