@@ -505,9 +505,12 @@ async def renderjob_reschedule(interaction: discord.Interaction,
 
             if job_new_frames:
                 # validate new frames
-                split_f = job_new_frames.split(",")
+                if "," in job_new_frames: 
+                    split_f = job_new_frames.split(",")
+                else:
+                    split_f = [job_new_frames]
                 if not all(re.fullmatch(REGEX_FRAMERANGE,m.strip()) for m in split_f):
-                    await interaction.response.send_message(f"Given framerange `{job_new_frames}` is not valid.\nUse valid syntax; `15, 20-25, 100`.",ephemeral=True)
+                    await interaction.followup.send(f"Given framerange `{job_new_frames}` is not valid.\nUse valid syntax; `15, 20-25, 100`.",ephemeral=True)
                     return
                 else:
                     props["Frames"] = job_new_frames
@@ -523,8 +526,10 @@ async def renderjob_reschedule(interaction: discord.Interaction,
 
 
             await interaction.followup.send(f"Requested to reschedule tasks in `{job_name}` as `{job_new_name}`.",ephemeral=True)
+            return
         else:
             await interaction.response.send_message(f"Your username is not associated with this job.",ephemeral=True)
+            return
     else:
         await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
 
