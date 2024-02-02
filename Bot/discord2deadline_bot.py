@@ -681,7 +681,10 @@ async def job_help(interaction: discord.Interaction, nederlands: Optional[bool] 
                     **/job resume:** Unpause a job if it's paused. It will start rendering again!\n\
                     **/job fail:** Mark a job as failed! You won't be able to requeue this, but rescheduling works.\n\n\
                     **/job requeue:** Re-queue up all the tasks within de job, effectively rendering it again.\n\
-                    **/job reschedule:** Repost a job, but with a different name, + other options."
+                    **/job reschedule:** Repost a job, but with a different name, + other options.\n\n\
+                    **/job activehours** -- This is a system that automatically suspends and resumes jobs.\n\
+                    **/job activehours set:** Set up 'Office Hours' for a job. The resume/suspend time are time codes in Hours:Minutes that indicate when the job should go and stop.\n\
+                    **/job activehours clean:** Remove automatic suspension of jobs based on earlier set time."
     else:
         help_txt = "**Alle /job opdrachten, uitgelegd.**\n\n\
                     **/job mine:** Laat alle renderopdrachten zien die van jou zijn, en hun status.\n\
@@ -690,7 +693,10 @@ async def job_help(interaction: discord.Interaction, nederlands: Optional[bool] 
                     **/job resume:** Als een opdracht op pauze staat, zet je 'm met deze weer aan.\n\
                     **/job fail:** Markeer een opdracht als gefaald. Hierdoor kan je hem niet meer 'requeue'-en, maar wel reschedulen.\n\n\
                     **/job requeue:** Zet alle taken in de opdracht op dezelfde manier aan, waardoor je 'm opnieuw rendert.\n\
-                    **/job reschedule:** Maak een kopie van de opdracht met een andere naam, en post hem opnieuw met extra opties."
+                    **/job reschedule:** Maak een kopie van de opdracht met een andere naam, en post hem opnieuw met extra opties.\n\n\
+                    **/job activehours** -- Dit systeem zet opdrachten automatisch op pauze en weer aan, op basis van aangegeven tijden!\n\
+                    **/job activehours set:** Stel actieve uren voor een opdracht in. De resume/suspend tijd zijn tijd codes in Uren:Minuten die aangeven wanneer de taak aan en uitgaat.\n\
+                    **/job activehours clean:** Zorgt er voor dat een taak niet meer automatisch aan of uit wordt gezet."
     embed = discord.Embed(title="Job help",color=DEADLINE_ORANGE, description=help_txt)
     await interaction.response.send_message(embed=embed,ephemeral=True)
 
