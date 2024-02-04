@@ -79,6 +79,10 @@ Arguments:
 - New Frames: Allows you to specify a new set of frames to render, following the deadline format, e.g. `0-10,200,390` to render frames zero through 10, frame 200 and frame 390. This can be very useful to isolate frames in a smaller job and do testing to fix errors, combined with the "New Scene file" argument.
 - Submit suspended: If you don't want to immediatly run the job, submit it suspended and use the "/job activehours" functionality to schedule it for later.
 
+### /job help (Nederlands [optional])
+
+Display a quick summary of job related commands, not unlike this paragraph. It is however not as detailed. Dutch translation is available if you provide the "Nederlands" parameter and set it to True.
+
 **TODO: Add priority argument, as well as command for requesting available pools.**
 
 ---
