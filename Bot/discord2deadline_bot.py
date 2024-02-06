@@ -477,6 +477,7 @@ async def renderjob_reschedule(interaction: discord.Interaction,
                                job_new_filename: Optional[str] = None,
                                job_new_directory: Optional[str] = None,
                                job_new_frames: Optional[str] = None,
+                               job_new_priority: Optional[int] = None,
                                submit_suspended: Optional[bool] = None):
     name = interaction.user.name
     
@@ -495,6 +496,13 @@ async def renderjob_reschedule(interaction: discord.Interaction,
     
             props, plug = get_job_cmd(job_info["job_id"])
             props["Name"] = job_new_name
+
+            if job_new_priority:
+                if job_new_priority >= 0 and job_new_priority <= 100:
+                    props["Priority"] = str(job_new_priority)
+                else:
+                    await interaction.followup.send(f"New given priority {job_new_priority} is invalid.\nPlease enter a whole number between 0 and 100.")
+                    return
 
             if job_new_scenefile:
                 plug["SceneFile"] = job_new_scenefile

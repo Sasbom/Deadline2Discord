@@ -65,7 +65,7 @@ Don't schedule pausing/unpausing of specified job anymore, if it was set before 
 ### /job requeue (Job name)
 Requeue all tasks in a job, making it run all tasks again. Is exactly equivalent to requeueing in deadline monitor, and will change no parameters.
 
-### /job reschedule (Job name) (Job new name) (New Scene file [optional]) (New Directory [optional]) (New Filename [optional]) (New Frames [optional]) (Submit Suspended [optional])
+### /job reschedule (Job name) (Job new name) (New Scene file [optional]) (New Directory [optional]) (New Filename [optional]) (New Frames [optional]) (New Priority [optional]) (Submit Suspended [optional])
 
 Now, This is quite the command. Luckily most of the arguments are optional.<br>
 Reschedule a job as a new job with a new name, taking most of the same submission information with it and allowing for some change.
@@ -77,6 +77,7 @@ Arguments:
 - New Directory: Specify a new directory to render to.
 - New Filename: Specify a new filename. Must include some #### for frame numbers, like `new_render_####.png`
 - New Frames: Allows you to specify a new set of frames to render, following the deadline format, e.g. `0-10,200,390` to render frames zero through 10, frame 200 and frame 390. This can be very useful to isolate frames in a smaller job and do testing to fix errors, combined with the "New Scene file" argument.
+- New job priority: Set the new job priority higher or lower depending on your needs.
 - Submit suspended: If you don't want to immediatly run the job, submit it suspended and use the "/job activehours" functionality to schedule it for later.
 
 ### /job help (Nederlands [optional])
