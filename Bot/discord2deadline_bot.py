@@ -359,8 +359,14 @@ async def stats_to_embed_async(job_id):
     task_constat = asyncify(CON.Jobs.CalculateJobStatistics,job_id,loop=cur_loop)
     task_job_plug = asyncify(get_job_cmd,job_id,loop=cur_loop)
     task_status = asyncify(get_job_status,job_id,loop=cur_loop)
-    
+    # Specify order
+    task_constat.set_name(1)
+    task_job_plug.set_name(2)
+    task_status.set_name(3)
+
     task_results, _ = await asyncio.wait([task_constat, task_job_plug, task_status])
+    task_results: list[asyncio.Task] = [t for t in task_results]
+    task_results.sort(key=lambda x: int(x.get_name()))
     results = [res.result() for res in task_results]
 
     stat_json_string = results[0]
