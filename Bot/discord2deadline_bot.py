@@ -83,7 +83,7 @@ def seconds_to_hms(seconds: int):
 
 def get_job_status(jobid):
     try:
-        details = CON.Jobs.GetJobDetails(jobid))
+        details = (CON.Jobs.GetJobDetails(jobid))
         details = str(details).replace("\\","/")
         json_details = ast.literal_eval(f"{details}")
         return json_details[jobid]["Job"]["Status"]
@@ -546,6 +546,17 @@ async def renderjob_reschedule(interaction: discord.Interaction,
         await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
 
 
+async def generate_jobinfo_string(job_id,job_name,loop = None):
+    print("awaiting job info")
+    status_task = asyncify(get_job_status,job_id,loop=loop)
+    await status_task
+    status = status_task.result()
+    print("awaited job info")
+    if status is None:
+        status = "Job is not present on server anymore."
+    return f"> `{job_name}`,  Status: **{status}**"
+        
+
 @job_group.command(
     name="mine",
     description="Show owned jobs and their states. Can take a while!"
@@ -558,11 +569,15 @@ async def renderjob_showmine(interaction: discord.Interaction):
     if job_info:
         await interaction.response.defer(ephemeral=True,thinking=True)
         response_txt = ["### All jobs found in your name:"]
-        for job in job_info:
-            status = get_job_status(job["job_id"])
-            if status is None:
-                status = "Job is not present on server anymore."
-            response_txt.append(f"> `{job['job_name']}`,  Status: **{status}**")
+
+        event_loop = asyncio.get_event_loop()
+        job_responses, _ = await asyncio.wait([asyncio.create_task(generate_jobinfo_string(job["job_id"],job["job_name"],loop=event_loop)) for job in job_info])
+        response_txt.extend([resp.result() for resp in job_responses])
+        #for job in job_info:
+            #status = get_job_status(job["job_id"])
+            #if status is None:
+            #    status = "Job is not present on server anymore."
+            #response_txt.append(f"> `{job['job_name']}`,  Status: **{status}**")
         await interaction.followup.send("\n".join(response_txt))
     else:
         await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 

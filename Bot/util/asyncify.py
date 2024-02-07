@@ -1,7 +1,7 @@
 import asyncio
 
 
-def asyncify(function: callable, *args, **kwargs):
+def asyncify(function: callable, *args, loop: asyncio.AbstractEventLoop = None, **kwargs):
     """
     Turn a normal function into a task wrapping a coroutine.
     
@@ -12,15 +12,16 @@ def asyncify(function: callable, *args, **kwargs):
     result = task.result()
     ```
     """
-    loop = asyncio.get_event_loop() # get current event loop
+    if loop is None:
+        loop = asyncio.get_event_loop() # get current event loop
     coroutine = asyncio.to_thread(function,*args,**kwargs) # create coroutine from function
     task = loop.create_task(coroutine) # create task from function
     return task
 
 
-async def asyncify_and_run(function: callable, *args, **kwargs):
+async def asyncify_and_run(function: callable, *args, loop: asyncio.AbstractEventLoop = None, **kwargs):
     """
-    Run a normal function async on the main event loop.
+    Run a normal function async on the main event loop (if loop is not specified)
 
     Either use: 
     ```py
@@ -34,7 +35,10 @@ async def asyncify_and_run(function: callable, *args, **kwargs):
     ```
     """
     
-    task = asyncify(function,*args,**kwargs)
-    await task
-    res = task.result()
-    return res
+    task = asyncify(function,loop,*args,**kwargs)
+    try:
+        await task
+        res = task.result()
+        return res
+    except BaseException as e:
+        return None
