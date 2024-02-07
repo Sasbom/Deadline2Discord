@@ -690,12 +690,7 @@ async def job_deregister_all(interaction: discord.Interaction):
         # Generate a list of tasks to run
         deregister_responses, _ = await asyncio.wait([asyncio.create_task(deregister_job_async(job["job_id"],job["job_name"],loop=event_loop)) for job in job_info])
         response_txt.extend([resp.result() for resp in deregister_responses])
-        # for job in job_info:
-        #     status = get_job_status(job_info["job_id"])
-        #     job_name = job_info["job_name"]
-        #     if status in ["Completed", "Failed", None]:
-        #         DB.remove(job.job_name == job_name)
-        #     response_txt.append(f"> `{job['job_name']}`")
+
         await interaction.followup.send(",\n".join(response_txt))
     else:
         await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
