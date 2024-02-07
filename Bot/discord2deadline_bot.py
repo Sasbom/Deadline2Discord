@@ -25,6 +25,8 @@ from util.message_cache import MESSAGES
 
 from util.httpserver import DeadlineHTTPCatcher
 
+from util.asyncify import asyncify, asyncify_and_run
+
 SECRET = secret.Secret
 GUILD = discord.Object(id=SECRET.guild)
 
@@ -81,7 +83,7 @@ def seconds_to_hms(seconds: int):
 
 def get_job_status(jobid):
     try:
-        details = (CON.Jobs.GetJobDetails(jobid))
+        details = CON.Jobs.GetJobDetails(jobid))
         details = str(details).replace("\\","/")
         json_details = ast.literal_eval(f"{details}")
         return json_details[jobid]["Job"]["Status"]
