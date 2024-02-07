@@ -547,11 +547,9 @@ async def renderjob_reschedule(interaction: discord.Interaction,
 
 
 async def generate_jobinfo_string(job_id,job_name,loop = None):
-    print("awaiting job info")
     status_task = asyncify(get_job_status,job_id,loop=loop)
     await status_task
     status = status_task.result()
-    print("awaited job info")
     if status is None:
         status = "Job is not present on server anymore."
     return f"> `{job_name}`,  Status: **{status}**"
@@ -571,13 +569,10 @@ async def renderjob_showmine(interaction: discord.Interaction):
         response_txt = ["### All jobs found in your name:"]
 
         event_loop = asyncio.get_event_loop()
+        # Generate a list of tasks to run
         job_responses, _ = await asyncio.wait([asyncio.create_task(generate_jobinfo_string(job["job_id"],job["job_name"],loop=event_loop)) for job in job_info])
         response_txt.extend([resp.result() for resp in job_responses])
-        #for job in job_info:
-            #status = get_job_status(job["job_id"])
-            #if status is None:
-            #    status = "Job is not present on server anymore."
-            #response_txt.append(f"> `{job['job_name']}`,  Status: **{status}**")
+
         await interaction.followup.send("\n".join(response_txt))
     else:
         await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
