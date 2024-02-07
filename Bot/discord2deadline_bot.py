@@ -665,6 +665,14 @@ async def job_deregister_command(interaction: discord.Interaction, job_name: str
         await interaction.response.send_message(f"Job {job_name} doesn't exist or is improperly registered.",ephemeral=True) 
 
 
+async def deregister_job_async(job_id,job_name,loop = None):
+    status_task = asyncify(get_job_status,job_id,loop=loop)
+    await status_task
+    status = status_task.result()
+    if status in ["Completed", "Failed", None]:
+        DB.remove(job.job_name == job_name)
+    return f"> `{job_name}`"
+
 @job_group.command(
     name="finish_all",
     description="Deregister ALL Completed/Failed jobs that you explicitly own. Can take a while."
@@ -677,12 +685,17 @@ async def job_deregister_all(interaction: discord.Interaction):
     if job_info:
         await interaction.response.defer(ephemeral=True,thinking=True)
         response_txt = ["### Deregistered:"]
-        for job in job_info:
-            status = get_job_status(job_info["job_id"])
-            job_name = job_info["job_name"]
-            if status in ["Completed", "Failed", None]:
-                DB.remove(job.job_name == job_name)
-            response_txt.append(f"> `{job['job_name']}`")
+        
+        event_loop = asyncio.get_event_loop()
+        # Generate a list of tasks to run
+        deregister_responses, _ = await asyncio.wait([asyncio.create_task(deregister_job_async(job["job_id"],job["job_name"],loop=event_loop)) for job in job_info])
+        response_txt.extend([resp.result() for resp in deregister_responses])
+        # for job in job_info:
+        #     status = get_job_status(job_info["job_id"])
+        #     job_name = job_info["job_name"]
+        #     if status in ["Completed", "Failed", None]:
+        #         DB.remove(job.job_name == job_name)
+        #     response_txt.append(f"> `{job['job_name']}`")
         await interaction.followup.send(",\n".join(response_txt))
     else:
         await interaction.response.send_message(f"No jobs were found in your name... :skull:",ephemeral=True) 
