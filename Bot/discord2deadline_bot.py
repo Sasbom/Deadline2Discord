@@ -301,7 +301,7 @@ async def deregister_command(interaction: discord.Interaction):
     else:
         await interaction.response.send_message(f"Your username doesn't exist in the registry. :nail_care:",ephemeral=True)
 
-
+# DEPRECATED
 def stats_to_embed(stat_json_string) -> discord.Embed:
     stat_obj = json.loads(stat_json_string)
     job_id = stat_obj["JobID"]
@@ -319,6 +319,71 @@ def stats_to_embed(stat_json_string) -> discord.Embed:
     render_time = parse_deadlinetime(stat_obj["RendTime"],True)
     status = get_job_status(job_id)
     job_dict, plugin_dict = get_job_cmd(job_id)
+
+    directory = os.path.normpath(job_dict["OutputDirectory0"]).replace("\\","/")
+    filename = os.path.normpath(job_dict["OutputFilename0"]).replace("\\","/")
+    
+    scene_file = "No scene file could be extracted."
+    if "SceneFile" in plugin_dict.keys():
+        scene_file = plugin_dict["SceneFile"]
+    elif "EnvironmentKeyValue1" in job_dict.keys():
+        scene_file = job_dict["EnvironmentKeyValue1"].split("=")[1]
+    scene_file = os.path.normpath(scene_file).replace("\\","/")
+
+    # Use running time to approximate time left
+    if render_time == "Not done yet.":
+        tasks_left = int(float(tasks_total)) - int(float(tasks_complete))
+        time_pertask = float(parse_deadlinetime_as_seconds(running_time_raw))/max(float(tasks_complete),0.001)
+        time_left = seconds_to_hms(time_pertask * tasks_left)
+    else:
+        time_left = seconds_to_hms(0)
+        running_time = render_time
+
+    embed_msg = discord.Embed(title=f":chart_with_upwards_trend: Stats for `{name}`",
+                              description=f"Analytics gathered from :wireless: Deadline API.\n:calendar: {get_timestamp_now()}",
+                              color=DEADLINE_ORANGE)
+    embed_msg.add_field(name=":information_source: Metadata",value=f"**ID:** {job_id}\n**Plugin:** {plugin}\n**Job priority:** {priority}\n**Submitted from:** {from_machine}\n**Status:** {status}",inline=False)
+    embed_msg.add_field(name=f":pencil: Task info:",value=f"**Processed** {tasks_complete} **out of** {tasks_total} **tasks.**"
+                                                          f"\n**Average time/frame:** {tasks_render_average}"
+                                                          f"\n**Running time:** {running_time}"
+                                                          f"\n**Estimated time left:** {time_left}"
+                                                          f"\n**Total render time:** {render_time}"
+                                                           "\n\n(Time estimate is based on task time, and time since the submission started. It may not be accurate, especially after a requeue. Requeues don't update the start time.)"
+                                                          f"\n\n**Output directory:**\n`{directory}`\n**Output filename:**\n`{filename}`\n**Rendering Scene:**\n`{scene_file}`",
+                                                           inline=False)
+    
+    return embed_msg
+
+async def stats_to_embed_async(job_id):
+    cur_loop = asyncio.get_event_loop()
+    task_constat = asyncify(CON.Jobs.CalculateJobStatistics,job_id,loop=cur_loop)
+    task_job_plug = asyncify(get_job_cmd,job_id,loop=cur_loop)
+    task_status = asyncify(get_job_status,job_id,loop=cur_loop)
+    
+    task_results, _ = await asyncio.wait([task_constat, task_job_plug, task_status])
+    results = [res.result() for res in task_results]
+
+    stat_json_string = results[0]
+    job_dict, plugin_dict = results[1]
+    status = results[2]
+
+    stat_json_string = str(stat_json_string).replace("'",'"')
+    stat_json_string = stat_json_string.replace('None','"None"')
+
+    stat_obj = json.loads(stat_json_string)
+    job_id = stat_obj["JobID"]
+    name = stat_obj["Name"]
+    from_machine = stat_obj["Mach"]
+    plugin = stat_obj["Plug"]
+    priority = stat_obj["Pri"]
+    tasks_total = stat_obj["Tasks"]
+    tasks_complete = stat_obj["CompletedTaskCount"]
+    tasks_render_average = parse_deadlinetime(stat_obj["AvgFrameRend"])
+    job_q = Query()
+    job_object = DB.get(job_q.job_id == job_id)
+    running_time_raw = get_timedelta(job_object["job_time"])
+    running_time = parse_deadlinetime(running_time_raw)
+    render_time = parse_deadlinetime(stat_obj["RendTime"],True)
 
     directory = os.path.normpath(job_dict["OutputDirectory0"]).replace("\\","/")
     filename = os.path.normpath(job_dict["OutputFilename0"]).replace("\\","/")
@@ -375,7 +440,8 @@ async def renderjob_stats(interaction: discord.Interaction, job_name: str):
             response_stat = str(response_stat).replace("'",'"')
             response_stat = response_stat.replace('None','"None"')
 
-            msg = stats_to_embed(response_stat)
+            #msg = stats_to_embed(response_stat)
+            msg = await stats_to_embed_async(job_info["job_id"])
             
             # send the message
             await interaction.followup.send(embed=msg,ephemeral=True)
