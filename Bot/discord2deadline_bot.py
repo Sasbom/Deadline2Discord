@@ -231,6 +231,23 @@ def garbage_collect():
     print("Finished deleted job cleanup cycle.")
 
 
+async def garbage_subtask_cleanup(job_id,event_loop):
+    stat_task = asyncify(get_job_status,job_id,loop=event_loop)
+    await stat_task
+    stat = stat_task.result()
+    if stat is None:
+        job = Query()
+        DB.remove(job.job_id == job_id)
+
+async def garbage_collect_async():
+    jobs = Query()
+    job_info = DB.seach(jobs.job_id.exists())
+    event_loop = asyncio.get_event_loop()
+    checkjobs = [asyncio.create_task(garbage_subtask_cleanup(job['job_id'],event_loop)) for job in job_info]
+    await asyncio.wait(checkjobs)
+    MESSAGES.post_message("Database cleaned up. Degenerate tasks removed!\nHappy rendering! :rocket:")
+    print("Finished deleted job cleanup cycle.")
+
 async def server_task_suspensionmanager():
     await client.wait_until_ready()
     channel: discord.TextChannel = client.get_channel(SECRET.channel)
