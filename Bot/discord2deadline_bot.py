@@ -241,7 +241,7 @@ async def garbage_subtask_cleanup(job_id,event_loop):
 
 async def garbage_collect_async():
     jobs = Query()
-    job_info = DB.seach(jobs.job_id.exists())
+    job_info = DB.search(jobs.job_id.exists())
     event_loop = asyncio.get_event_loop()
     checkjobs = [asyncio.create_task(garbage_subtask_cleanup(job['job_id'],event_loop)) for job in job_info]
     await asyncio.wait(checkjobs)
