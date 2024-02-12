@@ -619,6 +619,7 @@ async def renderjob_showmine(interaction: discord.Interaction):
 
 activehours_group = app_commands.Group(name="activehours",description="Options for active hours of job",parent=job_group)
 
+
 @activehours_group.command(
     name="set",
     description="Set active hours of this job in military time, 06:00 for 6 am, and 19:30 for half past 7 pm."
@@ -712,6 +713,7 @@ async def deregister_job_async(job_id,job_name,loop = None):
         DB.remove(job.job_name == job_name)
     return f"> `{job_name}`"
 
+
 @job_group.command(
     name="finish_all",
     description="Deregister ALL Completed/Failed jobs that you explicitly own. Can take a while."
@@ -767,7 +769,9 @@ async def job_help(interaction: discord.Interaction, nederlands: Optional[bool] 
     embed = discord.Embed(title="Job help",color=DEADLINE_ORANGE, description=help_txt)
     await interaction.response.send_message(embed=embed,ephemeral=True)
 
+
 prism_group = app_commands.Group(name="prism",description="Offers integration with Prism projects submitted to Deadline.")
+
 
 @prism_group.command(
     name = "register",
@@ -872,6 +876,7 @@ async def lock_prismproject(interaction: discord.Interaction, prism_project: str
     else:
         await interaction.response.send_message(f"No records of Prism project `{prism_project}` found.",ephemeral=True)
 
+
 @prism_group.command(
     name = "unlock",
     description="UnLock Prism project, allowing subscribers."
@@ -941,6 +946,7 @@ async def job_help(interaction: discord.Interaction, nederlands: Optional[bool] 
 
 calc_group = app_commands.Group(name="calculate",description="Calculate things!")
 
+
 @calc_group.command(
     name="rendertime",
     description="Estimate render time in a sequence of some FPS and duration. Time in HH:MM:SS"
@@ -977,8 +983,10 @@ async def calculate_frames_fromseconds(interaction: discord.Interaction,
     
     await interaction.response.send_message(message,ephemeral=True)
 
+
 farm_group = app_commands.Group(name="farm",description="Manage the farm in different ways.")
 garbage_collect_group = app_commands.Group(name="garbagecollect",description="Garbage collection settings", parent=farm_group)
+
 
 @garbage_collect_group.command(
     name="set",
@@ -992,6 +1000,7 @@ async def auto_gc(interaction: discord.Interaction, enabled: bool, hour_interval
         GC_HOURS_INTERVAL = hour_interval
         reportstr += f"\nGarbage collection interval: {GC_HOURS_INTERVAL}"
     await interaction.response.send_message(reportstr,ephemeral=True)
+
 
 @garbage_collect_group.command(
     name="force",
