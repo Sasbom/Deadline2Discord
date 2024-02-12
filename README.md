@@ -1,6 +1,8 @@
 # Deadline2Discord
 Discord bot for watching over a renderfarm, remotely!
 
+Current version: 0.5
+
 At my job, I find myself to be absent from any PC when someone asks me to diagnose some render
 in the system quite frequently, and i do not want to log in remotely every time I have to make sure something is re-submitted. I want to hand over some power to the people, remotely. Everyone uses discord, and bots in servers, so I thought that it'd be great for people to be able to use a discord bot to do stuff with renders they submit from their workplace.
 
@@ -17,6 +19,7 @@ _Made with love for my students at HKU, by Sas van Gulik, Keeper of Dungeon 7._
 - Being able to requeue/reschedule jobs, even going so far as to be able to modify parameters like targeted frame range and output files, for plugins that allow for it (so far autodesk plugins and blender)
 - Job ownership! No other people messing with your renders. 
 - Integration with Prism pipeline, without use of plugins. Users can subscribe/unsubscribe to a project that is relevant to them as long as it's open, and be notified of any render that is produced under it.
+- (As of 0.5) Async Deadline requests! This impacts /job mine, /job stat. /job finish_all, and /farm garbagecollect commands the most. Time cost for this functionality has been cut dramatically.
 
 This plugin also allows people to assign "office hours" to their jobs, automatically suspending/unsuspending them at certain timeframes.
 This is great for getting situations out of the way where people come to their PC's to work, to find out it's running some render job, because it's taking some days to render.
