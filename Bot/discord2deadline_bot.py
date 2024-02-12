@@ -48,8 +48,10 @@ REGEX_TIME_MMSS = re.compile(r"[0-5]{0,1}\d{1}[:][0-5]{1}\d{1}")
 REGEX_FRAMERANGE = re.compile(r"(?:[\d]+\s*\-{1}\s*[\d]+|[\d]+)")
 REGEX_TIME_HHMM = re.compile(r"(?:[2][0-3]:[0-5][\d]|[0-1]?[\d]:[0-5][\d])")
 
+
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
+
 
 def parse_deadlinetime(timestr: str, is_render: bool = False) -> str:
     dayhours = 0
@@ -63,6 +65,7 @@ def parse_deadlinetime(timestr: str, is_render: bool = False) -> str:
 
     return f"{int(h):02d} hr, {int(m):02d} min, {int(s):02d} sec."
 
+
 def parse_deadlinetime_as_seconds(timestr: str):
     dayhours = 0
     if "," in timestr:
@@ -72,14 +75,17 @@ def parse_deadlinetime_as_seconds(timestr: str):
     h += dayhours
     return h * 3600 + m * 60 + s
 
+
 def get_timedelta(starttime):
     t = float(starttime)
     return str(datetime.timedelta(seconds=int(time.time()-t)))
+
 
 def seconds_to_hms(seconds: int):
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
     return f"{int(h):02d} hr, {int(m):02d} min, {int(s):02d} sec."
+
 
 def get_job_status(jobid):
     try:
@@ -90,10 +96,12 @@ def get_job_status(jobid):
     except:
         return None
 
+
 def get_job(jobid):
     details = CON.Jobs.GetJob(jobid).replace("\\","/")
     return ast.literal_eval(f"{details}")
     
+
 def dictify_dline_cmdout(out: str) -> dict:
     file = out.split("\n")
     obj = '{'
@@ -113,6 +121,7 @@ def dictify_dline_cmdout(out: str) -> dict:
     obj = obj.replace("\\","/")
     return ast.literal_eval(f"{obj}")
 
+
 def fix_path(path):
     path = path.replace("\r","/r")
     path = path.replace("\t","/t")
@@ -123,12 +132,14 @@ def fix_path(path):
     path = path.replace("\\","/")
     return path
 
+
 def get_job_cmd(jobid):
     job_proc = subprocess.run([DEADLINE_CMD, "-JobSubmissionInfoFromJob", str(jobid)],capture_output=True, text=True)
     job_out = job_proc.stdout
     plug_proc = subprocess.run([DEADLINE_CMD, "-PluginSubmissionInfoFromJob", jobid],capture_output=True, text=True)
     plug_out = plug_proc.stdout
     return dictify_dline_cmdout(job_out), dictify_dline_cmdout(plug_out)
+
 
 def compose_resultembed(data_dict : dict[str,str]) -> tuple[discord.Embed, str, discord.File, str]:
     has_failed = data_dict["status"] == "Failed"
@@ -187,11 +198,13 @@ def get_user_pingable(username: str):
     id = DB.get(user.name == username)
     return bool(id)
 
+
 # testing out an embed.
 embed_msg = discord.Embed(title="Deadline bot v0.5\nby Sas van Gulik; @sasbom",
                           description="Discord integration for AWS Thinkbox Deadline :brain:", color=DEADLINE_ORANGE)
 MESSAGES.post_message(embed_msg)
 # end embed test
+
 
 GC_AUTO_ENABLED = False
 GC_HOURS_INTERVAL = 24
@@ -216,20 +229,6 @@ async def server_task_cleanup_logs():
             await garbage_collect_async()
         await asyncio.sleep(60*60*GC_HOURS_INTERVAL) # every specified hours.
 
-def garbage_collect():
-    """
-    Garbage collection cycle. Checks if jobs have been deleted.
-    """
-    print("Starting deleted job cleaup cycle...")
-    jobs = Query()
-    search_invalid = lambda s : get_job_status(s) is None
-    job_info = DB.search(jobs.job_id.test(search_invalid))
-    for job in job_info:
-        print(job["job_name"])
-        DB.remove(jobs.job_name == job["job_name"])
-    MESSAGES.post_message("Database cleaned up. Degenerate tasks removed!\nHappy rendering! :rocket:")
-    print("Finished deleted job cleanup cycle.")
-
 
 async def garbage_subtask_cleanup(job_id,event_loop):
     stat_task = asyncify(get_job_status,job_id,loop=event_loop)
@@ -239,6 +238,7 @@ async def garbage_subtask_cleanup(job_id,event_loop):
         job = Query()
         DB.remove(job.job_id == job_id)
 
+
 async def garbage_collect_async():
     jobs = Query()
     job_info = DB.search(jobs.job_id.exists())
@@ -247,6 +247,7 @@ async def garbage_collect_async():
     await asyncio.wait(checkjobs)
     MESSAGES.post_message("Database cleaned up. Degenerate tasks removed!\nHappy rendering! :rocket:")
     print("Finished deleted job cleanup cycle.")
+
 
 async def server_task_suspensionmanager():
     await client.wait_until_ready()
@@ -275,6 +276,7 @@ async def server_task_suspensionmanager():
                     CON.Jobs.SuspendJob(job_id)
                     DB.update({"resumeflag" : "False"},where("job_id") == job_id)
         await asyncio.sleep(10)
+
 
 class MyClient(discord.Client):
     async def setup_hook(self):
@@ -318,58 +320,6 @@ async def deregister_command(interaction: discord.Interaction):
     else:
         await interaction.response.send_message(f"Your username doesn't exist in the registry. :nail_care:",ephemeral=True)
 
-# DEPRECATED
-def stats_to_embed(stat_json_string) -> discord.Embed:
-    stat_obj = json.loads(stat_json_string)
-    job_id = stat_obj["JobID"]
-    name = stat_obj["Name"]
-    from_machine = stat_obj["Mach"]
-    plugin = stat_obj["Plug"]
-    priority = stat_obj["Pri"]
-    tasks_total = stat_obj["Tasks"]
-    tasks_complete = stat_obj["CompletedTaskCount"]
-    tasks_render_average = parse_deadlinetime(stat_obj["AvgFrameRend"])
-    job_q = Query()
-    job_object = DB.get(job_q.job_id == job_id)
-    running_time_raw = get_timedelta(job_object["job_time"])
-    running_time = parse_deadlinetime(running_time_raw)
-    render_time = parse_deadlinetime(stat_obj["RendTime"],True)
-    status = get_job_status(job_id)
-    job_dict, plugin_dict = get_job_cmd(job_id)
-
-    directory = os.path.normpath(job_dict["OutputDirectory0"]).replace("\\","/")
-    filename = os.path.normpath(job_dict["OutputFilename0"]).replace("\\","/")
-    
-    scene_file = "No scene file could be extracted."
-    if "SceneFile" in plugin_dict.keys():
-        scene_file = plugin_dict["SceneFile"]
-    elif "EnvironmentKeyValue1" in job_dict.keys():
-        scene_file = job_dict["EnvironmentKeyValue1"].split("=")[1]
-    scene_file = os.path.normpath(scene_file).replace("\\","/")
-
-    # Use running time to approximate time left
-    if render_time == "Not done yet.":
-        tasks_left = int(float(tasks_total)) - int(float(tasks_complete))
-        time_pertask = float(parse_deadlinetime_as_seconds(running_time_raw))/max(float(tasks_complete),0.001)
-        time_left = seconds_to_hms(time_pertask * tasks_left)
-    else:
-        time_left = seconds_to_hms(0)
-        running_time = render_time
-
-    embed_msg = discord.Embed(title=f":chart_with_upwards_trend: Stats for `{name}`",
-                              description=f"Analytics gathered from :wireless: Deadline API.\n:calendar: {get_timestamp_now()}",
-                              color=DEADLINE_ORANGE)
-    embed_msg.add_field(name=":information_source: Metadata",value=f"**ID:** {job_id}\n**Plugin:** {plugin}\n**Job priority:** {priority}\n**Submitted from:** {from_machine}\n**Status:** {status}",inline=False)
-    embed_msg.add_field(name=f":pencil: Task info:",value=f"**Processed** {tasks_complete} **out of** {tasks_total} **tasks.**"
-                                                          f"\n**Average time/frame:** {tasks_render_average}"
-                                                          f"\n**Running time:** {running_time}"
-                                                          f"\n**Estimated time left:** {time_left}"
-                                                          f"\n**Total render time:** {render_time}"
-                                                           "\n\n(Time estimate is based on task time, and time since the submission started. It may not be accurate, especially after a requeue. Requeues don't update the start time.)"
-                                                          f"\n\n**Output directory:**\n`{directory}`\n**Output filename:**\n`{filename}`\n**Rendering Scene:**\n`{scene_file}`",
-                                                           inline=False)
-    
-    return embed_msg
 
 async def stats_to_embed_async(job_id):
     cur_loop = asyncio.get_event_loop()
