@@ -944,6 +944,7 @@ async def job_help(interaction: discord.Interaction, nederlands: Optional[bool] 
     embed = discord.Embed(title="Prism help",color=DEADLINE_ORANGE, description=help_txt)
     await interaction.response.send_message(embed=embed,ephemeral=True)
 
+
 calc_group = app_commands.Group(name="calculate",description="Calculate things!")
 
 

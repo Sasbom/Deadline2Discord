@@ -1,5 +1,5 @@
 # Deadline2Discord Command Reference
-_Written for Version 0.3, as of 3nd February 2024_
+_Written for Version 0.5, as of 12th February 2024_
 
 [Go back home, to README.md](../README.md)
 
@@ -36,6 +36,8 @@ The arguments for this are listed as optional, they all have defaults, but its i
 The meat and potatoes of this bot. All commands can be used to modify jobs that are registered. You can only do things with a job if you own it. You can make sure you own it or co own it, by making sure your **actual discord handle** is in the "Ping user(s)" box on the submitter, or is subscribed to a registered prism project. (The second name that appears below your display name when you view your profile on discord). 
 
 View the main README.md to get a guide on how to modify your submission scripts to work with the bot.
+
+Most of the jobs used to block up the bot quite a bit, but now everything that makes loads of requests, does so asynchronously.
 
 ### /job mine
 Show all jobs that are registered to your name, with their status.
