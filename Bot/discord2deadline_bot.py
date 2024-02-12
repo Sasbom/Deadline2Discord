@@ -188,8 +188,8 @@ def get_user_pingable(username: str):
     return bool(id)
 
 # testing out an embed.
-embed_msg = discord.Embed(title="Deadline bot v0.4\nby Sas van Gulik; @sasbom",
-                          description="Discord integration for AWS Thinkbox Deadline :brain:\n\nCurrent functionality is being optimized. The **Asyncening** is upon us. :dancer:", color=DEADLINE_ORANGE)
+embed_msg = discord.Embed(title="Deadline bot v0.5\nby Sas van Gulik; @sasbom",
+                          description="Discord integration for AWS Thinkbox Deadline :brain:", color=DEADLINE_ORANGE)
 MESSAGES.post_message(embed_msg)
 # end embed test
 
@@ -213,7 +213,7 @@ async def server_task_cleanup_logs():
             channel.send(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:\n"
                             f"This task is executed every {GC_HOURS_INTERVAL} hours, to ensure database sanity.\n"
                             "Admins can enable/disable this check with /farm garbagecollect set [True/False] [Optional Time in hours].")
-            garbage_collect()
+            await garbage_collect_async()
         await asyncio.sleep(60*60*GC_HOURS_INTERVAL) # every specified hours.
 
 def garbage_collect():
@@ -1052,7 +1052,7 @@ async def force_gc(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     channel: discord.TextChannel = client.get_channel(SECRET.channel)
     await channel.send(f"Checking for deleted jobs and deleting them. Any queries made during this time will not be responsive. :clock:")
-    garbage_collect()
+    await garbage_collect_async()
     await interaction.followup.send("Forced GC cycle completed.",ephemeral=True)
 
 
