@@ -710,6 +710,7 @@ async def deregister_job_async(job_id,job_name,loop = None):
     await status_task
     status = status_task.result()
     if status in ["Completed", "Failed", None]:
+        job = Query()
         DB.remove(job.job_name == job_name)
     return f"> `{job_name}`"
 
