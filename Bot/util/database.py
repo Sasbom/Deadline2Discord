@@ -1,14 +1,17 @@
-from tinydb import TinyDB
+from psycopg2.extensions import connection
+
+from .pg import postgrease
 from .singleton import SingletonMetaClass
+
 
 class DB_holder(metaclass=SingletonMetaClass):
     def __init__(self):
-        path = f"{__file__}/../../register.db"
-        self._DB = TinyDB(path)
-    
+        self._DB = postgrease.connect()
+
     @property
     def DB(self):
         return self._DB
-    
+
+
 holder = DB_holder()
-DB: TinyDB = holder.DB
+DB: connection = holder.DB

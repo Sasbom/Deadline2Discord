@@ -1,0 +1,407 @@
+import time
+from dataclasses import dataclass, field, fields
+from typing import List, Optional
+
+import psycopg2 as pg
+import psycopg2.extensions as pgtypes
+
+
+@dataclass
+class bot_user:
+    name: str
+    discordid: str
+    roles: List[str] = field(default_factory=list)
+    uuid: str = field(default=None)
+
+
+@dataclass
+class bot_job:
+    deadline_name: str
+    deadline_id: str
+    started: int
+    ended: Optional[int]
+    group_id: str
+    frames: int
+    frame_start: int
+    frame_end: int
+    root: str
+    owners: List[str] = field(default_factory=list)
+    officehours: bool = field(default=False)
+    officehours_start: str = field(default="9:00")
+    officehours_end: str = field(default="18:00")
+    done: bool = field(default=False)
+    active: bool = field(default=True)
+    uuid: str = field(default=None)
+
+
+@dataclass
+class bot_group:
+    name: str
+    members: List[str]
+    owners: List[str]
+    locked: bool = field(default=False)
+    prism: bool = field(default=False)
+    uuid: str = field(default=None)
+
+
+@dataclass
+class bot_zip:
+    deadline_id: str
+    is_zipped: bool = field(default=False)
+    is_made_available: bool = field(default=False)
+    zip_location: str = field(default="")
+    download_url: str = field(default="")
+    download_since: int = field(default=0)
+    download_expires: int = field(default=0)
+
+
+# ENSURE PRESENCE OF STUFF
+def ensure_schema_tables(db: pgtypes.connection):
+    with db.cursor() as cursor:
+        cursor.execute(
+            "CREATE SCHEMA IF NOT EXISTS bot\n"
+            "    AUTHORIZATION sas;\n"
+            "\n"
+            "GRANT USAGE ON SCHEMA bot TO PUBLIC;\n"
+            "\n"
+            "GRANT ALL ON SCHEMA bot TO sas;\n"
+        )
+        # User table.
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS bot.users\n"
+            "(\n"
+            "    name text,\n"
+            "    uuid uuid NOT NULL DEFAULT gen_random_uuid(),\n"
+            "    roles text[],\n"
+            "    discordid text,\n"
+            "    CONSTRAINT unique_username UNIQUE (name)\n"
+            ")\n"
+        )
+        # Function to get admin users if owner field is left empty.
+        cursor.execute(
+            "CREATE OR REPLACE FUNCTION bot.get_admin_users(\n"
+            "	)\n"
+            "    RETURNS text[]\n"
+            "    LANGUAGE 'sql'\n"
+            "    COST 100\n"
+            "    VOLATILE PARALLEL UNSAFE\n"
+            "AS $BODY$\n"
+            "SELECT ARRAY( SELECT name FROM bot.users WHERE 'admin'=ANY(roles));\n"
+            "$BODY$;\n"
+        )
+        # Function to get current unix timestamp
+        cursor.execute(
+            "CREATE OR REPLACE FUNCTION bot.unix_time(\n"
+            "	)\n"
+            "    RETURNS bigint\n"
+            "    LANGUAGE 'sql'\n"
+            "    COST 100\n"
+            "    VOLATILE PARALLEL UNSAFE\n"
+            "AS $BODY$\n"
+            "SELECT extract(epoch from now());\n"
+            "$BODY$;\n"
+        )
+        # Jobs table
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS bot.jobs\n"
+            "(\n"
+            "    uuid uuid NOT NULL DEFAULT gen_random_uuid(),\n"
+            "    deadline_name text,\n"
+            "    deadline_id text,\n"
+            "    started bigint DEFAULT unix_time(),\n"
+            "    ended bigint DEFAULT NULL,\n"
+            "    group_id uuid DEFAULT NULL,\n"
+            "    frames int,\n"
+            "    frame_start int,\n"
+            "    frame_end int,\n"
+            "    root text,\n"
+            "    officehours boolean,\n"
+            "    officehours_start text,\n"
+            "    officehours_end text,\n"
+            "    done boolean,\n"
+            "    active boolean,\n"
+            "    owners text[] DEFAULT get_admin_users()\n"
+            ");\n"
+        )
+        # Group table
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS bot.groups\n"
+            "(\n"
+            "    uuid uuid NOT NULL DEFAULT gen_random_uuid(),\n"
+            "    name text,\n"
+            "    members text[],\n"
+            "    owners text[],\n"
+            "    locked boolean,\n"
+            "    prism boolean,\n"
+            "    CONSTRAINT unique_groupname UNIQUE (name)\n"
+            ");\n"
+        )
+        # Download table
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS bot.zip\n"
+            "(\n"
+            "    deadline_id text NOT NULL,\n"
+            "    is_zipped boolean,\n"
+            "    is_made_available boolean,\n"
+            "    download_url text,\n"
+            "    download_since bigint,\n"
+            "    download_expires bigint,\n"
+            "    CONSTRAINT unique_deadline_id UNIQUE (deadline_id)\n"
+            ");\n"
+        )
+
+        db.commit()
+
+
+def ensure_name_available(db: pgtypes.connection, name):
+    with db.cursor() as cursor:
+        cursor.execute(
+            "SELECT ARRAY(SELECT name FROM bot.groups UNION SELECT name FROM bot.users) as names"
+        )
+        allnames = cursor.fetchone()[0]
+    return name not in allnames
+
+
+def insert_user(db: pgtypes.connection, user: bot_user):
+    if not ensure_name_available(db, user.name):
+        print("Name not unique")
+        return
+    with db.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO bot.users (name, roles, discordid) VALUES (%s,%s,%s)",
+            (user.name, user.roles, user.discordid),
+        )
+    db.commit()
+
+
+def remove_user(db: pgtypes.connection, user: bot_user):
+    with db.cursor() as cursor:
+        cursor.execute("DELETE FROM bot.users WHERE 'uuid'=%s", (user.uuid,))
+    db.commit()
+
+
+def insert_group(db: pgtypes.connection, group: bot_group):
+    if not ensure_name_available(db, group.name):
+        print("Name not unique")
+        return
+    with db.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO bot.groups (name, members, owners) VALUES (%s,%s::uuid[],%s::uuid[])",
+            (group.name, group.members, group.owners),
+        )
+    db.commit()
+
+
+def insert_job(db: pgtypes.connection, job: bot_job):
+    with db.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO bot.jobs "
+            "(deadline_name, deadline_id, root, owners, frames, group_id) "
+            "VALUES (%s,%s,%s,%s,%s,%s::uuid)",
+            (
+                job.deadline_name,
+                job.deadline_id,
+                job.root,
+                job.owners,
+                job.frames,
+                job.group_id,
+            ),
+        )
+    db.commit()
+
+
+def _ensure_unique_args(args: tuple):
+    return sum(1 if a else 0 for a in args) == 1
+
+
+def _valid_arg_id(args: tuple):
+    for i, a in enumerate(args):
+        if a:
+            return i
+
+
+def _dataclass_query(cls):
+    return ",".join(f.name for f in fields(cls))
+
+
+def _dataclass_updatestr(cls):
+    """Formats as: "field1"=%s, "field2"=%s, ... excluding UUID"""
+    data = [f.name for f in fields(cls) if f.name != "uuid"]
+    return (", ".join(f'"{f}"=%s' for f in data), data)
+
+
+def get_user(db: pgtypes.connection, username=None, discordid=None):
+    args = (username, discordid)
+    if not _ensure_unique_args(args):
+        print("Please use only 1 keyword argument")
+    valid_arg = _valid_arg_id(args)
+
+    selectfields = _dataclass_query(bot_user)
+    with db.cursor() as cursor:
+        if valid_arg == 0:
+            cursor.execute(
+                f"SELECT {selectfields} FROM bot.users WHERE name=%s LIMIT 1",
+                (args[0],),
+            )
+        else:
+            cursor.execute(
+                f"SELECT {selectfields} FROM bot.users WHERE discordid=%s LIMIT 1",
+                (args[1],),
+            )
+        userdata = cursor.fetchone()
+    if userdata:
+        return bot_user(*userdata)  # forward all data into bot user
+    else:
+        return None
+
+
+def get_group(db: pgtypes.connection, groupname=None, isprism=False):
+    if groupname is None:
+        return
+
+    selectfields = _dataclass_query(bot_group)
+    with db.cursor() as cursor:
+        cursor.execute(
+            f'SELECT {selectfields} FROM bot.groups WHERE "name"=%s AND prism=%s LIMIT 1',
+            (groupname, isprism),
+        )
+        groupdata = cursor.fetchone()
+    if groupdata:
+        return bot_group(*groupdata)
+    else:
+        return None
+
+
+def get_groups(db: pgtypes.connection, prism=None):
+    filterprism = ""
+    if prism is not None:
+        if prism:
+            filterprism = "WHERE prism='true'"
+        else:
+            filterprism = "WHERE prism='false'"
+
+    selectfields = _dataclass_query(bot_group)
+    with db.cursor() as cursor:
+        cursor.execute(f"SELECT {selectfields} FROM bot.groups {filterprism} LIMIT 1")
+        groupsdata = cursor.fetchall()
+    if groupsdata:
+        return [bot_group(*data) for data in groupsdata]
+    return None
+
+
+def get_job(db: pgtypes.connection, deadline_name=None, deadline_id=None, uuid=None):
+    args = (deadline_name, deadline_id, uuid)
+    if not _ensure_unique_args(args):
+        print("Please use only 1 keyword argument")
+        return
+    valid_arg = _valid_arg_id(args)
+    selectfields = _dataclass_query(bot_job)
+    with db.cursor() as cursor:
+        if valid_arg == 0:
+            cursor.execute(
+                f"SELECT {selectfields} FROM bot.jobs WHERE deadline_name=%s LIMIT 1",
+                (args[0],),
+            )
+        elif valid_arg == 1:
+            cursor.execute(
+                f"SELECT {selectfields} FROM bot.jobs WHERE deadline_id=%s LIMIT 1",
+                (args[1],),
+            )
+        elif valid_arg == 2:
+            cursor.execute(
+                f"SELECT {selectfields} FROM bot.jobs WHERE uuid=%s::uuid LIMIT 1",
+                (args[2],),
+            )
+        jobdata = cursor.fetchone()
+    if jobdata:
+        return bot_job(*jobdata)
+    else:
+        return None
+
+
+def get_zip(db: pgtypes.connection, job: str | bot_job):
+    if isinstance(job, bot_job):
+        job = bot_job.deadline_id
+
+    selectfields = _dataclass_query(bot_zip)
+    with db.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {selectfields} FROM bot.zip WHERE deadline_id=%s LIMIT 1",
+            (job,),
+        )
+        zipdata = cursor.fetchone()
+    if zipdata:
+        return bot_zip(*zipdata)
+    else:
+        return None
+
+
+def get_jobs_user(
+    db: pgtypes.connection,
+    user: bot_user,
+    get_expired: bool = True,
+    get_done: bool = True,
+):
+    now = int(time.time())
+    expired = ""
+    if not get_expired:
+        expired = f" AND ended <= {now}"
+
+    done = "AND done = 'false'"
+    if not get_done:
+        done = " AND done = 'true'"
+
+    selectfields = _dataclass_query(bot_job)
+    with db.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {selectfields} FROM bot.jobs WHERE 'owners' @> %s {expired}{done};",
+            (user.uuid,),
+        )
+        jobsdata = cursor.fetchall()
+    if jobsdata:
+        return [bot_job(*data) for data in jobsdata]
+    return None
+
+
+def get_officehours_jobs(db: pgtypes.connection):
+    selectfields = _dataclass_query(bot_job)
+    with db.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {selectfields} FROM bot.jobs WHERE officehours = 'true' AND 'done' = 'false';"
+        )
+        jobsdata = cursor.fetchall()
+    if jobsdata:
+        return [bot_job(*data) for data in jobsdata]
+    return None
+
+
+def get_jobids(db: pgtypes.connection):
+    """Get all job ids not marked as done."""
+    with db.cursor() as cursor:
+        cursor.execute("SELECT deadline_id FROM bot.jobs WHERE done = 'false';")
+        data = [job[0] for job in cursor.fetchall()]
+
+    if data:
+        return data
+    return None
+
+
+def update_job(db: pgtypes.connection, job: bot_job):
+    update, attrs = _dataclass_updatestr(bot_job)
+    vals = [getattr(job, a) for a in attrs]
+    t_vals = tuple(*vals, job.uuid)
+    with db.cursor() as cursor:
+        cursor.execute(f"UPDATE bot.jobs SET {update} WHERE uuid=%s;", t_vals)
+
+
+def user_uuid(db: pgtypes.connection, name):
+    with db.cursor() as cursor:
+        cursor.execute("SELECT uuid FROM bot.users WHERE name=%s;", (name,))
+        uuid = cursor.fetchone()[0]
+    return uuid
+
+
+def connect() -> pgtypes.connection:
+    db = pg.connect("host=localhost user=sas password=sasword dbname=hku port=42069")
+    ensure_schema_tables(db)
+    return db
