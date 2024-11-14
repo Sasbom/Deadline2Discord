@@ -97,7 +97,13 @@ class DiscordEventListener(DeadlineEventListener):
             f"A job, `{job.JobName}`, has been submitted!",
             self._ip,
             self._port,
-            {"id": job.JobId, "name": job.JobName, "owner": owner},
+            {
+                "id": job.JobId,
+                "name": job.JobName,
+                "owner": owner,
+                "frames": job.JobFrames,
+                "dir": job.JobOutputDirectories[0],
+            },
         )
         pass
 
