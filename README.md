@@ -22,6 +22,13 @@ _Made with love for my students at HKU, by Sas van Gulik, Keeper of Dungeon 7._
 - (As of 0.5) Async Deadline requests! This impacts /job mine, /job stat. /job finish_all, and /farm garbagecollect commands the most. Time cost for this functionality has been cut dramatically.
 - (As of 0.6) Dropped TinyDB in favor of Postgres running from Docker. This makes things much easier to manage and diagnose.
 
+### Coming up (in order of prescedence):
+- Frame sequence transfer to a Dropbox of your choice through a bot. (Requires a bot API token)
+- Assigning co-owners to a group
+- Subscription groups for the masses, not just for prism users.
+- EXR conversion to viewable files
+- Request sequence previews
+
 This plugin also allows people to assign "office hours" to their jobs, automatically suspending/unsuspending them at certain timeframes.
 This is great for getting situations out of the way where people come to their PC's to work, to find out it's running some render job, because it's taking some days to render.
 
