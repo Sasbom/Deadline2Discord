@@ -5,6 +5,8 @@ from typing import List, Optional
 import psycopg2 as pg
 import psycopg2.extensions as pgtypes
 
+from ..secret import Secret
+
 
 @dataclass
 class bot_user:
@@ -58,17 +60,19 @@ class bot_zip:
 # ENSURE PRESENCE OF STUFF
 def ensure_schema_tables(db: pgtypes.connection):
     with db.cursor() as cursor:
+        user = Secret.pg_user
+        schema = Secret.pg_schema
         cursor.execute(
-            "CREATE SCHEMA IF NOT EXISTS bot\n"
-            "    AUTHORIZATION sas;\n"
+            f"CREATE SCHEMA IF NOT EXISTS {schema}\n"
+            f"    AUTHORIZATION {user};\n"
             "\n"
-            "GRANT USAGE ON SCHEMA bot TO PUBLIC;\n"
+            f"GRANT USAGE ON SCHEMA {schema} TO PUBLIC;\n"
             "\n"
-            "GRANT ALL ON SCHEMA bot TO sas;\n"
+            f"GRANT ALL ON SCHEMA {schema} TO {user};\n"
         )
         # User table.
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS bot.users\n"
+            f"CREATE TABLE IF NOT EXISTS {schema}.users\n"
             "(\n"
             "    name text,\n"
             "    uuid uuid NOT NULL DEFAULT gen_random_uuid(),\n"
@@ -79,7 +83,7 @@ def ensure_schema_tables(db: pgtypes.connection):
         )
         # Function to get admin users if owner field is left empty.
         cursor.execute(
-            "CREATE OR REPLACE FUNCTION bot.get_admin_users(\n"
+            f"CREATE OR REPLACE FUNCTION {schema}.get_admin_users(\n"
             "	)\n"
             "    RETURNS text[]\n"
             "    LANGUAGE 'sql'\n"
@@ -91,7 +95,7 @@ def ensure_schema_tables(db: pgtypes.connection):
         )
         # Function to get current unix timestamp
         cursor.execute(
-            "CREATE OR REPLACE FUNCTION bot.unix_time(\n"
+            f"CREATE OR REPLACE FUNCTION {schema}.unix_time(\n"
             "	)\n"
             "    RETURNS bigint\n"
             "    LANGUAGE 'sql'\n"
@@ -103,7 +107,7 @@ def ensure_schema_tables(db: pgtypes.connection):
         )
         # Jobs table
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS bot.jobs\n"
+            f"CREATE TABLE IF NOT EXISTS {schema}.jobs\n"
             "(\n"
             "    uuid uuid NOT NULL DEFAULT gen_random_uuid(),\n"
             "    deadline_name text,\n"
@@ -125,7 +129,7 @@ def ensure_schema_tables(db: pgtypes.connection):
         )
         # Group table
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS bot.groups\n"
+            f"CREATE TABLE IF NOT EXISTS {schema}.groups\n"
             "(\n"
             "    uuid uuid NOT NULL DEFAULT gen_random_uuid(),\n"
             "    name text,\n"
@@ -138,7 +142,7 @@ def ensure_schema_tables(db: pgtypes.connection):
         )
         # Download table
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS bot.zip\n"
+            f"CREATE TABLE IF NOT EXISTS {schema}.zip\n"
             "(\n"
             "    deadline_id text NOT NULL,\n"
             "    is_zipped boolean,\n"
@@ -156,7 +160,7 @@ def ensure_schema_tables(db: pgtypes.connection):
 def ensure_name_available(db: pgtypes.connection, name):
     with db.cursor() as cursor:
         cursor.execute(
-            "SELECT ARRAY(SELECT name FROM bot.groups UNION SELECT name FROM bot.users) as names"
+            f"SELECT ARRAY(SELECT name FROM {Secret.pg_schema}.groups UNION SELECT name FROM {Secret.pg_schema}.users) as names"
         )
         allnames = cursor.fetchone()[0]
     return name not in allnames
@@ -168,7 +172,7 @@ def insert_user(db: pgtypes.connection, user: bot_user):
         return
     with db.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO bot.users (name, roles, discordid) VALUES (%s,%s,%s)",
+            f"INSERT INTO {Secret.pg_schema}.users (name, roles, discordid) VALUES (%s,%s,%s)",
             (user.name, user.roles, user.discordid),
         )
     db.commit()
@@ -176,7 +180,9 @@ def insert_user(db: pgtypes.connection, user: bot_user):
 
 def remove_user(db: pgtypes.connection, user: bot_user):
     with db.cursor() as cursor:
-        cursor.execute("DELETE FROM bot.users WHERE 'uuid'=%s", (user.uuid,))
+        cursor.execute(
+            f"DELETE FROM {Secret.pg_schema}.users WHERE 'uuid'=%s", (user.uuid,)
+        )
     db.commit()
 
 
@@ -186,8 +192,16 @@ def insert_group(db: pgtypes.connection, group: bot_group):
         return
     with db.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO bot.groups (name, members, owners) VALUES (%s,%s::uuid[],%s::uuid[])",
+            f"INSERT INTO {Secret.pg_schema}.groups (name, members, owners) VALUES (%s,%s::uuid[],%s::uuid[])",
             (group.name, group.members, group.owners),
+        )
+    db.commit()
+
+
+def remove_group(db: pgtypes.connection, group: bot_group):
+    with db.cursor() as cursor:
+        cursor.execute(
+            f"DELETE FROM {Secret.pg_schema}.groups WHERE 'uuid'=%s", (group.uuid,)
         )
     db.commit()
 
@@ -195,7 +209,7 @@ def insert_group(db: pgtypes.connection, group: bot_group):
 def insert_job(db: pgtypes.connection, job: bot_job):
     with db.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO bot.jobs "
+            f"INSERT INTO {Secret.pg_schema}.jobs "
             "(deadline_name, deadline_id, root, owners, frames, group_id) "
             "VALUES (%s,%s,%s,%s,%s,%s::uuid)",
             (
@@ -240,12 +254,12 @@ def get_user(db: pgtypes.connection, username=None, discordid=None):
     with db.cursor() as cursor:
         if valid_arg == 0:
             cursor.execute(
-                f"SELECT {selectfields} FROM bot.users WHERE name=%s LIMIT 1",
+                f"SELECT {selectfields} FROM {Secret.pg_schema}.users WHERE name=%s LIMIT 1",
                 (args[0],),
             )
         else:
             cursor.execute(
-                f"SELECT {selectfields} FROM bot.users WHERE discordid=%s LIMIT 1",
+                f"SELECT {selectfields} FROM {Secret.pg_schema}.users WHERE discordid=%s LIMIT 1",
                 (args[1],),
             )
         userdata = cursor.fetchone()
@@ -262,7 +276,7 @@ def get_group(db: pgtypes.connection, groupname=None, isprism=False):
     selectfields = _dataclass_query(bot_group)
     with db.cursor() as cursor:
         cursor.execute(
-            f'SELECT {selectfields} FROM bot.groups WHERE "name"=%s AND prism=%s LIMIT 1',
+            f'SELECT {selectfields} FROM {Secret.pg_schema}.groups WHERE "name"=%s AND prism=%s LIMIT 1',
             (groupname, isprism),
         )
         groupdata = cursor.fetchone()
@@ -282,7 +296,9 @@ def get_groups(db: pgtypes.connection, prism=None):
 
     selectfields = _dataclass_query(bot_group)
     with db.cursor() as cursor:
-        cursor.execute(f"SELECT {selectfields} FROM bot.groups {filterprism} LIMIT 1")
+        cursor.execute(
+            f"SELECT {selectfields} FROM {Secret.pg_schema}.groups {filterprism} LIMIT 1"
+        )
         groupsdata = cursor.fetchall()
     if groupsdata:
         return [bot_group(*data) for data in groupsdata]
@@ -299,17 +315,17 @@ def get_job(db: pgtypes.connection, deadline_name=None, deadline_id=None, uuid=N
     with db.cursor() as cursor:
         if valid_arg == 0:
             cursor.execute(
-                f"SELECT {selectfields} FROM bot.jobs WHERE deadline_name=%s LIMIT 1",
+                f"SELECT {selectfields} FROM {Secret.pg_schema}.jobs WHERE deadline_name=%s LIMIT 1",
                 (args[0],),
             )
         elif valid_arg == 1:
             cursor.execute(
-                f"SELECT {selectfields} FROM bot.jobs WHERE deadline_id=%s LIMIT 1",
+                f"SELECT {selectfields} FROM {Secret.pg_schema}.jobs WHERE deadline_id=%s LIMIT 1",
                 (args[1],),
             )
         elif valid_arg == 2:
             cursor.execute(
-                f"SELECT {selectfields} FROM bot.jobs WHERE uuid=%s::uuid LIMIT 1",
+                f"SELECT {selectfields} FROM {Secret.pg_schema}.jobs WHERE uuid=%s::uuid LIMIT 1",
                 (args[2],),
             )
         jobdata = cursor.fetchone()
@@ -326,7 +342,7 @@ def get_zip(db: pgtypes.connection, job: str | bot_job):
     selectfields = _dataclass_query(bot_zip)
     with db.cursor() as cursor:
         cursor.execute(
-            f"SELECT {selectfields} FROM bot.zip WHERE deadline_id=%s LIMIT 1",
+            f"SELECT {selectfields} FROM {Secret.pg_schema}.zip WHERE deadline_id=%s LIMIT 1",
             (job,),
         )
         zipdata = cursor.fetchone()
@@ -354,7 +370,7 @@ def get_jobs_user(
     selectfields = _dataclass_query(bot_job)
     with db.cursor() as cursor:
         cursor.execute(
-            f"SELECT {selectfields} FROM bot.jobs WHERE 'owners' @> %s {expired}{done};",
+            f"SELECT {selectfields} FROM {Secret.pg_schema}.jobs WHERE 'owners' @> %s {expired}{done};",
             (user.uuid,),
         )
         jobsdata = cursor.fetchall()
@@ -367,7 +383,7 @@ def get_officehours_jobs(db: pgtypes.connection):
     selectfields = _dataclass_query(bot_job)
     with db.cursor() as cursor:
         cursor.execute(
-            f"SELECT {selectfields} FROM bot.jobs WHERE officehours = 'true' AND 'done' = 'false';"
+            f"SELECT {selectfields} FROM {Secret.pg_schema}.jobs WHERE officehours = 'true' AND 'done' = 'false';"
         )
         jobsdata = cursor.fetchall()
     if jobsdata:
@@ -378,7 +394,9 @@ def get_officehours_jobs(db: pgtypes.connection):
 def get_jobids(db: pgtypes.connection):
     """Get all job ids not marked as done."""
     with db.cursor() as cursor:
-        cursor.execute("SELECT deadline_id FROM bot.jobs WHERE done = 'false';")
+        cursor.execute(
+            f"SELECT deadline_id FROM {Secret.pg_schema}.jobs WHERE done = 'false';"
+        )
         data = [job[0] for job in cursor.fetchall()]
 
     if data:
@@ -391,17 +409,35 @@ def update_job(db: pgtypes.connection, job: bot_job):
     vals = [getattr(job, a) for a in attrs]
     t_vals = tuple(*vals, job.uuid)
     with db.cursor() as cursor:
-        cursor.execute(f"UPDATE bot.jobs SET {update} WHERE uuid=%s;", t_vals)
+        cursor.execute(
+            f"UPDATE {Secret.pg_schema}.jobs SET {update} WHERE uuid=%s;", t_vals
+        )
+    db.commit()
+
+
+def update_group(db: pgtypes.connection, group: bot_group):
+    update, attrs = _dataclass_updatestr(bot_group)
+    vals = [getattr(group, a) for a in attrs]
+    t_vals = tuple(*vals, group.uuid)
+    with db.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE {Secret.pg_schema}.groups SET {update} WHERE uuid=%s;", t_vals
+        )
+    db.commit()
 
 
 def user_uuid(db: pgtypes.connection, name):
     with db.cursor() as cursor:
-        cursor.execute("SELECT uuid FROM bot.users WHERE name=%s;", (name,))
+        cursor.execute(
+            f"SELECT uuid FROM {Secret.pg_schema}.users WHERE name=%s;", (name,)
+        )
         uuid = cursor.fetchone()[0]
     return uuid
 
 
 def connect() -> pgtypes.connection:
-    db = pg.connect("host=localhost user=sas password=sasword dbname=hku port=42069")
+    db = pg.connect(
+        f"host={Secret.pg_address} user={Secret.pg_user} password={Secret.pg_password} dbname={Secret.pg_database} port={Secret.pg_port}"
+    )
     ensure_schema_tables(db)
     return db

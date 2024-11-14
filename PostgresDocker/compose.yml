@@ -1,0 +1,36 @@
+services:
+  python_startup:
+    image: python:3.12
+    volumes: 
+      - ./python_code:/usr/src/myapp
+      - ./startup_sql:/sql
+    environment:
+      PG_USER: ${PG_USER}
+      PG_PWD: ${PG_PWD}
+      PG_DB: ${PG_DB}
+      PG_SCHEMA: ${PG_SCHEMA}
+    command: ["python", "/usr/src/myapp/generate_sql.py"]
+  postgres:
+    image: postgres:17-alpine
+    depends_on:
+      - python_startup
+    volumes:
+      - ./startup_sql/:/docker-entrypoint-initdb.d/
+      - ./pg_data:/var/lib/postgresql/data/
+    restart: always
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PWD}
+      POSTGRES_DB: ${PG_DB}
+    ports:
+      - "42069:5432"
+  pg_admin:
+    image: dpage/pgadmin4
+    ports:
+      - "5555:80"
+    volumes:
+      - ./pg_admin_data:/var/lib/pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PG_ADMIN_MAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PG_ADMIN_PWD}

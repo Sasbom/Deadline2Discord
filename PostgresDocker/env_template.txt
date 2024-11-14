@@ -1,0 +1,8 @@
+-= Fill out the fields, remove this header, and save as .env =-
+
+PG_USER=
+PG_PWD=
+PG_DB=
+PG_SCHEMA=
+PG_ADMIN_MAIL=
+PG_ADMIN_PWD=

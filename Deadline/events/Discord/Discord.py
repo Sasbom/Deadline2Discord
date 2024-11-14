@@ -1,4 +1,4 @@
-# DISCORD INFORMATION GETTER!
+ BaseException# DISCORD INFORMATION GETTER!
 # Listen to things and then submit them to discord bot.
 # Quite the concept.
 # A lot of notes were taken from the ShotGrid event plugin.
@@ -34,7 +34,7 @@ def log_to_server(message, ip, port, extra_info = None):
     _request = request.Request(_adress, data=_data, method="POST")
     try:
         request.urlopen(_request)
-    except:
+    except BaseException:
         print("it ain't workin' chief")
 
 def log_jobinfo_to_server(job: Job, ip, port):
@@ -44,7 +44,7 @@ def log_jobinfo_to_server(job: Job, ip, port):
     _request = request.Request(_adress, data=_data, method="POST")
     try:
         request.urlopen(_request)
-    except:
+    except BaseException:
         print("it ain't workin' chief")
 
 def request_prism_users(prism_project_name: str, ip: str, port):
@@ -57,7 +57,7 @@ def request_prism_users(prism_project_name: str, ip: str, port):
             users = result.read().decode()
             print(users,prism_project_name)
         return users 
-    except:
+    except BaseException:
         print("it ain't workin' chief")
         return ""
 

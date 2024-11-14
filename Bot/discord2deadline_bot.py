@@ -917,22 +917,14 @@ prism_group = app_commands.Group(
 async def create_prismproject(interaction: discord.Interaction, prism_project: str):
     prism_project = prism_project.strip()  # normalize name
     user = interaction.user.name
-    project = Query()
-    p = DB.get(project.prism_name == prism_project)
+    p = pg.get_group(DB, groupname=prism_project, isprism=True)
     if p is not None:
         await interaction.response.send_message(
             f"Prism project `{prism_project}` is already present in the system.",
             ephemeral=True,
         )
     else:
-        DB.insert(
-            {
-                "prism_name": prism_project,
-                "subscribed_users": "",
-                "is_locked": "False",
-                "prism_owner": user,
-            }
-        )
+        pg.bot_group(prism_project, owners=[user], prism=True)
         await interaction.response.send_message(
             f"Registered Prism project `{prism_project}` in the system, with you ,`@{user}` being the owner.",
             ephemeral=True,
@@ -946,18 +938,15 @@ async def remove_prismproject(interaction: discord.Interaction, prism_project: s
     prism_project = prism_project.strip()  # normalize name
     user = interaction.user.name
     is_admin = interaction.user.guild_permissions.administrator
-    project = Query()
-    p = DB.get(project.prism_name == prism_project)
-    if p is not None and (p["prism_owner"] == user or is_admin):
-        DB.remove(project.prism_name == prism_project)
-        admin_msg = (
-            "`Admin override`: " if (p["prism_owner"] != user and is_admin) else ""
-        )
+    p = pg.get_group(DB, groupname=prism_project, isprism=True)
+    if p is not None and (user in p.owners or is_admin):
+        pg.remove_group(DB, p)
+        admin_msg = "`Admin override`: " if (user in p.owners and is_admin) else ""
         await interaction.response.send_message(
             f"{admin_msg}Prism project `{prism_project}` has been removed from the system.",
             ephemeral=True,
         )
-    elif p is not None and (p["prism_owner"] != user or not is_admin):
+    elif p is not None and (user not in p.owners or not is_admin):
         await interaction.response.send_message(
             f"Prism project `{prism_project}` is not yours! You can't remove it.",
             ephemeral=True,
@@ -977,26 +966,19 @@ async def user_join_prismproject(interaction: discord.Interaction, prism_project
             "To perform this action, you must register yourself first!\nUse `/register` to register your username to be pingable.",
             ephemeral=True,
         )
-    project = Query()
-    p = DB.get(project.prism_name == prism_project)
-    if p is not None and p["is_locked"] == "False":
-        users: list[str] = (
-            p["subscribed_users"].split(",") if p["subscribed_users"] else []
-        )
-        if user in users:
+    p = pg.get_group(DB, prism_project, True)
+    if p is not None and not p.locked:
+        if user in p.members:
             await interaction.response.send_message(
                 f"You are already subscribed to `{prism_project}`.", ephemeral=True
             )
         else:
-            users.append(user)
-            DB.update(
-                {"subscribed_users": ",".join(users)},
-                project.prism_name == prism_project,
-            )
+            p.members.append(user)
+            pg.update_group(DB, p)
             await interaction.response.send_message(
                 f"Succesfully subscribed to `{prism_project}`!", ephemeral=True
             )
-    elif p is not None and p["is_locked"] == "True":
+    elif p is not None and p.locked:
         await interaction.response.send_message(
             f"Prism Project: `{prism_project}` is not able to be subscribed to, because the owner locked it.",
             ephemeral=True,
@@ -1012,26 +994,19 @@ async def user_join_prismproject(interaction: discord.Interaction, prism_project
 async def user_leave_prismproject(interaction: discord.Interaction, prism_project: str):
     prism_project = prism_project.strip()  # normalize name
     user = interaction.user.name
-    project = Query()
-    p = DB.get(project.prism_name == prism_project)
-    if p is not None and p["is_locked"] == "False":
-        users: list[str] = p["subscribed_users"].split(",")
-        if user not in users:
+    p = pg.get_group(DB, prism_project, True)
+    if p is not None and not p.locked:
+        if user not in p.members:
             await interaction.response.send_message(
                 f"You are not subscribed to `{prism_project}`.", ephemeral=True
             )
-        elif user in users:
-            users = [
-                u for u in users if not u == user
-            ]  # Recompose list without user in it
-            DB.update(
-                {"subscribed_users": ",".join(users)},
-                project.prism_name == prism_project,
-            )
+        elif user in p.members:
+            p.members = [u for u in p.members if u != user]
+            pg.update_group(DB, p)
             await interaction.response.send_message(
                 f"Succesfully unsubscribed from `{prism_project}`!", ephemeral=True
             )
-    elif p is not None and p["is_locked"] == "True":
+    elif p is not None and p.locked:
         await interaction.response.send_message(
             f"Prism Project: `{prism_project}` is not able to be unsubscribed from, because the owner locked it.",
             ephemeral=True,
@@ -1050,18 +1025,16 @@ async def lock_prismproject(interaction: discord.Interaction, prism_project: str
     prism_project = prism_project.strip()  # normalize name
     user = interaction.user.name
     is_admin = interaction.user.guild_permissions.administrator
-    project = Query()
-    p = DB.get(project.prism_name == prism_project)
-    if p is not None and (p["prism_owner"] == user or is_admin):
-        DB.update({"is_locked": "True"}, project.prism_name == prism_project)
-        admin_msg = (
-            "`Admin override`: " if (p["prism_owner"] != user and is_admin) else ""
-        )
+    p = pg.get_group(DB, prism_project, True)
+    if p is not None and (user in p.owners or is_admin):
+        p.locked = True
+        pg.update_group(DB, p)
+        admin_msg = "`Admin override`: " if (user not in p.owners and is_admin) else ""
         await interaction.response.send_message(
             f"{admin_msg}Prism project `{prism_project}` has been locked!\nNo one can subscribe/unsubscribe anymore.",
             ephemeral=True,
         )
-    elif p is not None and (p["prism_owner"] != user or not is_admin):
+    elif p is not None and (user not in p.owners or not is_admin):
         await interaction.response.send_message(
             f"Prism project `{prism_project}` is not yours! You can't lock it.",
             ephemeral=True,
@@ -1075,22 +1048,20 @@ async def lock_prismproject(interaction: discord.Interaction, prism_project: str
 @prism_group.command(
     name="unlock", description="UnLock Prism project, allowing subscribers."
 )
-async def lock_prismproject(interaction: discord.Interaction, prism_project: str):
+async def unlock_prismproject(interaction: discord.Interaction, prism_project: str):
     prism_project = prism_project.strip()  # normalize name
     user = interaction.user.name
     is_admin = interaction.user.guild_permissions.administrator
-    project = Query()
-    p = DB.get(project.prism_name == prism_project)
-    if p is not None and (p["prism_owner"] == user or is_admin):
-        DB.update({"is_locked": "False"}, project.prism_name == prism_project)
-        admin_msg = (
-            "`Admin override`: " if (p["prism_owner"] != user and is_admin) else ""
-        )
+    p = pg.get_group(DB, prism_project, True)
+    if p is not None and (user in p.owners or is_admin):
+        p.locked = True
+        pg.update_group(DB, p)
+        admin_msg = "`Admin override`: " if (user not in p.owners and is_admin) else ""
         await interaction.response.send_message(
             f"{admin_msg}Prism project `{prism_project}` has been unlocked!\nPeople can subscribe/unsubscribe again.",
             ephemeral=True,
         )
-    elif p is not None and (p["prism_owner"] != user or not is_admin):
+    elif p is not None and (user not in p.owners or not is_admin):
         await interaction.response.send_message(
             f"Prism project `{prism_project}` is not yours! You can't unlock it.",
             ephemeral=True,
@@ -1106,26 +1077,16 @@ async def lock_prismproject(interaction: discord.Interaction, prism_project: str
     description="List all registered Prism projects, their owners, and their subscribers.",
 )
 async def list_prismprojects(interaction: discord.Interaction):
-    projects = Query()
-    search_in = lambda s: s != ""
-    prism_info = DB.search(projects.prism_name.test(search_in))
+    prism_info = pg.get_groups(DB, prism=True)
     if prism_info:
         await interaction.response.defer(ephemeral=True, thinking=True)
         response_txt = ["### All Prism projects in the system:"]
         for p in prism_info:
-            locked = (
-                "`Locked` :locked:"
-                if p["is_locked"] == "True"
-                else "`Unlocked` :unlock:"
-            )
-            owner = p["prism_owner"]
-            subs = (
-                ", ".join(p["subscribed_users"].split(","))
-                if p["subscribed_users"]
-                else "No one has subbed yet..."
-            )
+            locked = "`Locked` :locked:" if p.locked else "`Unlocked` :unlock:"
+            owner = ", ".join(p.owners)
+            subs = ", ".join(p.members) if p.members else "No one has subbed yet..."
             response_txt.append(
-                f"> `{p['prism_name']}`,  Owned by: `{owner}`, {locked}\n> - Subscribers: `{subs}`\n"
+                f"> `{p.name}`,  Owned by: `{owner}`, {locked}\n> - Subscribers: `{subs}`\n"
             )
         await interaction.followup.send("\n".join(response_txt))
     else:
@@ -1138,7 +1099,7 @@ async def list_prismprojects(interaction: discord.Interaction):
     name="help",
     description="Help page for /prism commands, also availale in dutch with nederlands = True",
 )
-async def job_help(
+async def prism_help(
     interaction: discord.Interaction, nederlands: Optional[bool] = False
 ):
     if not nederlands:
