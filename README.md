@@ -37,6 +37,7 @@ This is great for getting situations out of the way where people come to their P
 
 ---
 ### Dependencies:
+- Python 3.12
 - Discord.py
 - A Postgres database.
 - The libraries in the Bot/botenv/requirements.txt
