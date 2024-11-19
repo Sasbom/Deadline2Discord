@@ -147,7 +147,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                     frame_start=job_frames[0],
                     frame_end=job_frames[-1],
                     group_id=None,
-                    root=data_dict["dir"][0]
+                    root=data_dict["dir"][0],
+                    done=False,
                 )
                 pg.insert_job(DB, new_job)
             else:

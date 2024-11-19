@@ -24,7 +24,9 @@ from util.message_cache import MESSAGES
 SECRET = secret.Secret
 GUILD = discord.Object(id=SECRET.guild)
 
-# Establish connection with deadline server
+# Establish connection with deadline web service. 
+# This depends heavily on how it's set up in the repo settings
+# Here we assume that authentication is turned off.
 CON = DeadlineCon(socket.gethostname(), SECRET.deadline_port)
 
 IP = socket.gethostbyname(socket.gethostname())
@@ -683,6 +685,7 @@ async def renderjob_showmine(interaction: discord.Interaction):
     job_info = None
     if user is not None:
         job_info = pg.get_jobs_user(DB, user)
+        print(job_info, user, sep="\n")
     if job_info and user:
         await interaction.response.defer(ephemeral=True, thinking=True)
         response_txt = ["### All jobs found in your name:"]
