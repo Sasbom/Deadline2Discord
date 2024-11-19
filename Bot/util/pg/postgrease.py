@@ -413,7 +413,8 @@ def get_jobids(db: pgtypes.connection):
 def update_job(db: pgtypes.connection, job: bot_job):
     update, attrs = _dataclass_updatestr(bot_job)
     vals = [getattr(job, a) for a in attrs]
-    t_vals = tuple(*vals, job.uuid)
+    vals.append(job.uuid)
+    t_vals = tuple(vals)
     with db.cursor() as cursor:
         cursor.execute(
             f"UPDATE {Secret.pg_schema}.jobs SET {update} WHERE uuid=%s;", t_vals
@@ -424,7 +425,8 @@ def update_job(db: pgtypes.connection, job: bot_job):
 def update_group(db: pgtypes.connection, group: bot_group):
     update, attrs = _dataclass_updatestr(bot_group)
     vals = [getattr(group, a) for a in attrs]
-    t_vals = tuple(*vals, group.uuid)
+    vals.append(group.uuid)
+    t_vals = tuple(vals)
     with db.cursor() as cursor:
         cursor.execute(
             f"UPDATE {Secret.pg_schema}.groups SET {update} WHERE uuid=%s;", t_vals

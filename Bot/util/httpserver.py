@@ -151,7 +151,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )
                 pg.insert_job(DB, new_job)
             else:
-                job: pg.bot_job = pg.get_job(DB,deadline_id=job_name)
+                job: pg.bot_job = pg.get_job(DB,deadline_name=job_name)
                 job.deadline_id = job_id
 
                 if job_time != "0":
