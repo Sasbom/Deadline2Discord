@@ -214,7 +214,7 @@ def get_user_pingable(username: str):
 
 # testing out an embed.
 embed_msg = discord.Embed(
-    title="Deadline bot v0.5\nby Sas van Gulik; @sasbom",
+    title="Deadline bot v0.6\nby Sas van Gulik; @sasbom",
     description="Discord integration for AWS Thinkbox Deadline :brain:",
     color=DEADLINE_ORANGE,
 )
