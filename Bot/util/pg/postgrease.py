@@ -70,6 +70,7 @@ def ensure_schema_tables(db: pgtypes.connection):
             "\n"
             f"GRANT ALL ON SCHEMA {schema} TO {user};\n"
         )
+        db.commit()
         # User table.
         cursor.execute(
             f"CREATE TABLE IF NOT EXISTS {schema}.users\n"
@@ -81,6 +82,7 @@ def ensure_schema_tables(db: pgtypes.connection):
             "    CONSTRAINT unique_username UNIQUE (name)\n"
             ")\n"
         )
+        db.commit()
         # Function to get admin users if owner field is left empty.
         cursor.execute(
             f"CREATE OR REPLACE FUNCTION {schema}.get_admin_users(\n"
@@ -93,6 +95,7 @@ def ensure_schema_tables(db: pgtypes.connection):
             "SELECT ARRAY( SELECT name FROM bot.users WHERE 'admin'=ANY(roles));\n"
             "$BODY$;\n"
         )
+        db.commit()
         # Function to get current unix timestamp
         cursor.execute(
             f"CREATE OR REPLACE FUNCTION {schema}.unix_time(\n"
@@ -105,6 +108,7 @@ def ensure_schema_tables(db: pgtypes.connection):
             "SELECT extract(epoch from now());\n"
             "$BODY$;\n"
         )
+        db.commit()
         # Jobs table
         cursor.execute(
             f"CREATE TABLE IF NOT EXISTS {schema}.jobs\n"
@@ -112,7 +116,7 @@ def ensure_schema_tables(db: pgtypes.connection):
             "    uuid uuid NOT NULL DEFAULT gen_random_uuid(),\n"
             "    deadline_name text,\n"
             "    deadline_id text,\n"
-            "    started bigint DEFAULT unix_time(),\n"
+            f"    started bigint DEFAULT {schema}.unix_time(),\n"
             "    ended bigint DEFAULT NULL,\n"
             "    group_id uuid DEFAULT NULL,\n"
             "    frames int,\n"
@@ -124,9 +128,10 @@ def ensure_schema_tables(db: pgtypes.connection):
             "    officehours_end text,\n"
             "    done boolean,\n"
             "    active boolean,\n"
-            "    owners text[] DEFAULT get_admin_users()\n"
+            f"    owners text[] DEFAULT {schema}.get_admin_users()\n"
             ");\n"
         )
+        db.commit()
         # Group table
         cursor.execute(
             f"CREATE TABLE IF NOT EXISTS {schema}.groups\n"
@@ -140,6 +145,7 @@ def ensure_schema_tables(db: pgtypes.connection):
             "    CONSTRAINT unique_groupname UNIQUE (name)\n"
             ");\n"
         )
+        db.commit()
         # Download table
         cursor.execute(
             f"CREATE TABLE IF NOT EXISTS {schema}.zip\n"

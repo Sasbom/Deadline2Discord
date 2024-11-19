@@ -282,24 +282,25 @@ async def server_task_suspensionmanager():
     while not client.is_closed():
         time_now = datetime.datetime.now()
         jobs = pg.get_officehours_jobs(DB)
-        for j in jobs:
-            suspendtime = j.officehours_start
-            resumetime = j.officehouse_end
-            resumeflag = j.active  # is "True" if job is running
-            job_id = j.deadline_id
+        if jobs:
+            for j in jobs:
+                suspendtime = j.officehours_start
+                resumetime = j.officehouse_end
+                resumeflag = j.active  # is "True" if job is running
+                job_id = j.deadline_id
 
-            if not resumeflag:
-                hours, minutes = [int(i) for i in resumetime.split(":")]
-                if time_now.hour == hours and time_now.minute == minutes:
-                    CON.Jobs.ResumeJob(job_id)
-                    j.active = True
-                    pg.update_job(DB, j)
-            elif resumeflag:
-                hours, minutes = [int(i) for i in suspendtime.split(":")]
-                if time_now.hour == hours and time_now.minute == minutes:
-                    CON.Jobs.SuspendJob(job_id)
-                    j.active = False
-                    pg.update_job(DB, j)
+                if not resumeflag:
+                    hours, minutes = [int(i) for i in resumetime.split(":")]
+                    if time_now.hour == hours and time_now.minute == minutes:
+                        CON.Jobs.ResumeJob(job_id)
+                        j.active = True
+                        pg.update_job(DB, j)
+                elif resumeflag:
+                    hours, minutes = [int(i) for i in suspendtime.split(":")]
+                    if time_now.hour == hours and time_now.minute == minutes:
+                        CON.Jobs.SuspendJob(job_id)
+                        j.active = False
+                        pg.update_job(DB, j)
         await asyncio.sleep(10)
 
 
@@ -677,8 +678,10 @@ async def generate_jobinfo_string(job_id, job_name, loop=None):
 async def renderjob_showmine(interaction: discord.Interaction):
     name = interaction.user.name
     user = pg.get_user(DB, username=name)
-    job_info = pg.get_jobs_user(DB, user)
-    if job_info:
+    job_info = None
+    if user is not None:
+        job_info = pg.get_jobs_user(DB, user)
+    if job_info and user:
         await interaction.response.defer(ephemeral=True, thinking=True)
         response_txt = ["### All jobs found in your name:"]
 
