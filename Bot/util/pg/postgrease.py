@@ -376,8 +376,8 @@ def get_jobs_user(
     selectfields = _dataclass_query(bot_job)
     with db.cursor() as cursor:
         cursor.execute(
-            f"SELECT {selectfields} FROM {Secret.pg_schema}.jobs WHERE 'owners' @> %s {expired}{done};",
-            (user.uuid,),
+            f"SELECT {selectfields} FROM {Secret.pg_schema}.jobs WHERE %s = ANY(owners) {expired}{done};",
+            (user.name,),
         )
         jobsdata = cursor.fetchall()
     if jobsdata:
