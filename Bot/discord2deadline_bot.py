@@ -10,12 +10,12 @@ import time
 from typing import Optional
 
 import discord
-from Deadline.DeadlineConnect import DeadlineCon
 from discord import app_commands
 from discord.ext.commands import has_permissions
 
 import util.pg.postgrease as pg
 import util.secret as secret
+from Deadline.DeadlineConnect import DeadlineCon
 from util.asyncify import asyncify
 from util.database import DB
 from util.httpserver import DeadlineHTTPCatcher
@@ -257,18 +257,20 @@ async def garbage_subtask_cleanup(job_id, event_loop):
     stat = stat_task.result()
     if stat is None:
         job = pg.get_job(DB, deadline_id=job_id)
-        job.done = True
-        pg.update_job(DB, job)
+        if job is not None:
+            job.done = True
+            pg.update_job(DB, job)
 
 
 async def garbage_collect_async():
     ids = pg.get_jobids(DB)
-    event_loop = asyncio.get_event_loop()
-    checkjobs = [
-        asyncio.create_task(garbage_subtask_cleanup(job_id, event_loop))
-        for job_id in ids
-    ]
-    await asyncio.wait(checkjobs)
+    if ids:
+        event_loop = asyncio.get_event_loop()
+        checkjobs = [
+            asyncio.create_task(garbage_subtask_cleanup(job_id, event_loop))
+            for job_id in ids
+        ]
+        await asyncio.wait(checkjobs)
     MESSAGES.post_message(
         "Database cleaned up. Degenerate tasks removed!\nHappy rendering! :rocket:"
     )
@@ -845,7 +847,9 @@ async def deregister_job_async(job_id, job_name, loop=None):
 async def job_deregister_all(interaction: discord.Interaction):
     name = interaction.user.name
     user = pg.get_user(DB, username=name)
-    job_info = pg.get_jobs_user(DB, user)
+    job_info = None
+    if user:
+        job_info = pg.get_jobs_user(DB, user)
     if job_info:
         await interaction.response.defer(ephemeral=True, thinking=True)
         response_txt = ["### Deregistered:"]
