@@ -85,6 +85,18 @@ def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
 
 
+def framelist(framestr: str):
+    parts = [p.strip() for p in framestr.split(",")]
+    collect = []
+    for p in parts:
+        if "-" in p:
+            i, o = [int(x) for x in p.split("-")]
+            collect.extend(range(i,o+1))
+        else:
+            collect.append(int(p))
+    return collect
+
+
 class RequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers["Content-Length"])
@@ -110,6 +122,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             job_time = "0"
             if "time" in data_dict.keys():
                 job_time = data_dict["time"][0]
+            job_frames = [0]
+            if "frames" in data_dict.keys():
+                job_frames = sorted(framelist(data_dict["frames"][0]))
 
             job_info = pg.get_job(DB, deadline_name=job_name)
             if not job_info:
@@ -127,10 +142,16 @@ class RequestHandler(BaseHTTPRequestHandler):
                     deadline_id=job_id,
                     started=int(job_time),
                     owners=owner_list,
+                    ended=None,
+                    frames=len(job_frames),
+                    frame_start=job_frames[0],
+                    frame_end=job_frames[-1],
+                    group_id=None,
+                    root=data_dict["dir"][0]
                 )
                 pg.insert_job(DB, new_job)
             else:
-                job: pg.bot_job = pg.get_job(deadline_id=job_name)
+                job: pg.bot_job = pg.get_job(DB,deadline_id=job_name)
                 job.deadline_id = job_id
 
                 if job_time != "0":
