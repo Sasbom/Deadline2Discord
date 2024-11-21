@@ -217,7 +217,7 @@ def insert_job(db: pgtypes.connection, job: bot_job):
         cursor.execute(
             f"INSERT INTO {Secret.pg_schema}.jobs "
             "(deadline_name, deadline_id, root, owners, frames, group_id, frame_start, frame_end, officehours, officehours_start, officehours_end, done, active) "
-            "VALUES (%s,%s,%s,%s,%s,%s::uuid,%s,%s,%s,%s,%s,%s,%s,%s)",
+            "VALUES (%s,%s,%s,%s,%s,%s::uuid,%s,%s,%s,%s,%s,%s,%s)",
             (
                 job.deadline_name,
                 job.deadline_id,
