@@ -230,7 +230,6 @@ def insert_job(db: pgtypes.connection, job: bot_job):
                 job.officehours,
                 job.officehours_start,
                 job.officehours_end,
-                job.officehours_end,
                 job.done,
                 job.active
             ),
