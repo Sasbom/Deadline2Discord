@@ -1,6 +1,7 @@
 import time
 from dataclasses import dataclass, field, fields
 from typing import List, Optional
+from uuid import uuid4
 
 import psycopg2 as pg
 import psycopg2.extensions as pgtypes
@@ -153,6 +154,7 @@ def ensure_schema_tables(db: pgtypes.connection):
             "    deadline_id text NOT NULL,\n"
             "    is_zipped boolean,\n"
             "    is_made_available boolean,\n"
+            "    zip_location text,\n"
             "    download_url text,\n"
             "    download_since bigint,\n"
             "    download_expires bigint,\n"
@@ -363,6 +365,41 @@ def get_zip(db: pgtypes.connection, job: str | bot_job):
         return bot_zip(*zipdata)
     else:
         return None
+
+
+def construct_zip_from_job(db: pgtypes.connection, job: bot_job):
+    if z := get_zip(db, job):
+        return z
+
+    zipobj = bot_zip(job.deadline_id,False,False,fR"{job.root}\{job.deadline_name}_{uuid4()}_zip.zip","",0,0)
+
+    with db.cursor() as cursor:
+        cursor.execute(
+            f"INSERT INTO {Secret.pg_schema}.zip "
+            "(deadline_id, is_zipped, is_made_available, "
+            "zip_location, download_url, download_since, "
+            "download_expires) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            (zipobj.deadline_id, zipobj.is_zipped, zipobj.is_made_available, 
+             zipobj.zip_location, zipobj.download_url, zipobj.download_since, 
+             zipobj.download_expires),
+        )
+    db.commit()
+
+    return zipobj
+
+
+def update_zip(db, zip: bot_zip):
+    data = [f.name for f in fields(zip.__class__) if f.name != "deadline_id"]
+    update, attrs = (", ".join(f'"{f}"=%s' for f in data), data)
+    vals = [getattr(zip, a) for a in attrs]
+    vals.append(zip.deadline_id)
+    t_vals = tuple(vals)
+    with db.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE {Secret.pg_schema}.zip SET {update} WHERE deadline_id=%s;", t_vals
+        )
+    db.commit()
 
 
 def get_jobs_user(
