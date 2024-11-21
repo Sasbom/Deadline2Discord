@@ -23,6 +23,9 @@ class Secrets(metaclass=SingletonMetaClass):
     pg_schema: str = None
     pg_address: str = None
     pg_port: int = None
+    dropbox_oauth2_accesstoken: str = None
+    dropbox_app_key: str = None
+    dropbox_app_secret: str = None
 
     def __init__(self, path: str):
         if os.path.exists(path):
@@ -39,6 +42,9 @@ class Secrets(metaclass=SingletonMetaClass):
                 self.pg_schema = data["pg_schema"]
                 self.pg_address = data["pg_address"]
                 self.pg_port = data["pg_port"]
+                self.dropbox_oauth2_accesstoken = data["dropbox_oauth2_accesstoken"]
+                self.dropbox_app_key = data["dropbox_app_key"]
+                self.dropbox_app_secret = data["dropbox_app_secret"]
             print("Succesfully read secrets...")
         else:
             with open(path, "w") as f:
@@ -54,6 +60,9 @@ class Secrets(metaclass=SingletonMetaClass):
                     "pg_schema": "bot",
                     "pg_address": "localhost",
                     "pg_port": 5432,
+                    "dropbox_oauth2_accesstoken": "",
+                    "dropbox_app_key": "",
+                    "dropbox_app_secret": ""
                 }
                 json.dump(data, f, indent="  ")
                 print(
