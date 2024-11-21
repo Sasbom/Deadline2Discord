@@ -790,47 +790,55 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
 
     image_zip._EXEC = R"C:\Users\Student\Desktop\Deadline2Discord\Bot\util\pyimzip\zip_imagefolder.exe"
 
-    zip = ImageZipProcess(
-        folder,
-        zipfile,
-    )
     await user.dm_channel.send(f"Uploading {job.deadline_name} renders to dropbox.")
-    zipmsg = await user.dm_channel.send("Zipping... ")
+    if not zip_construct.is_zipped:
+        zip = ImageZipProcess(
+            folder,
+            zipfile,
+        )
+        zipmsg = await user.dm_channel.send("Zipping... ")
 
-    async def poll_zip_task(zip: ImageZipProcess):
-        while not zip.done:
-            await zipmsg.edit(content=f"Zipping... `{zip.progress}`")
-            await asyncio.sleep(5)
-        await zipmsg.edit(content=f"Zipping... `100%`")
+        async def poll_zip_task(zip: ImageZipProcess):
+            while not zip.done:
+                await zipmsg.edit(content=f"Zipping... `{zip.progress}`")
+                await asyncio.sleep(5)
+            await zipmsg.edit(content=f"Zipping... `100%`")
 
-    waiting = asyncio.Task(zip.start_zipping())
-    printing = asyncio.Task(poll_zip_task(zip))
+        waiting = asyncio.Task(zip.start_zipping())
+        printing = asyncio.Task(poll_zip_task(zip))
 
-    await asyncio.gather(waiting, printing)
-    await user.dm_channel.send(f"Zipped {job.deadline_name} renders.")
+        await asyncio.gather(waiting, printing)
+        await user.dm_channel.send(f"Zipped {job.deadline_name} renders.")
 
-    zip_construct.is_zipped = True
+        zip_construct.is_zipped = True
+        pg.update_zip(DB, zip_construct)
+    else:
+        await user.dm_channel.send("Job has already been zipped!")
 
-    upload = DropBoxUpload(zip_construct.zip_location, f"/BOT/{zipfile}")
-    uploadmsg = await user.dm_channel.send("Uploading... ")
+    if not zip_construct.is_made_available:
+        upload = DropBoxUpload(zip_construct.zip_location, f"/BOT/{zipfile}")
+        uploadmsg = await user.dm_channel.send("Uploading... ")
 
-    async def report(ongoing_upload: DropBoxUpload, interval: float = 5):
-        # while not ongoing_upload.done:
-        while not ongoing_upload.done:
-            if ongoing_upload.progress:
-                await uploadmsg.edit(content=f"Uploading... `{ongoing_upload.progress}`")
-            await asyncio.sleep(interval)
-        await uploadmsg.edit(content=f"Uploading... `100%`")
+        async def report(ongoing_upload: DropBoxUpload, interval: float = 5):
+            # while not ongoing_upload.done:
+            while not ongoing_upload.done:
+                if ongoing_upload.progress:
+                    await uploadmsg.edit(content=f"Uploading... `{ongoing_upload.progress}`")
+                await asyncio.sleep(interval)
+            await uploadmsg.edit(content=f"Uploading... `100%`")
 
-    upload_task = asyncio.create_task(upload.start_upload_thread())
-    report_task = asyncio.create_task(report(upload))
-    
-    await asyncio.gather(upload_task, report_task,)
+        upload_task = asyncio.create_task(upload.start_upload_thread())
+        report_task = asyncio.create_task(report(upload))
 
-    zip_construct.download_url = upload.url
-    zip_construct.is_made_available = True
-    zip_construct.download_since = int(time.time())
-    zip_construct.download_expires = int(time.time()) + (24*60*60) # add 24hrs 
+        await asyncio.gather(upload_task, report_task,)
+
+        zip_construct.download_url = upload.url
+        zip_construct.is_made_available = True
+        zip_construct.download_since = int(time.time())
+        zip_construct.download_expires = int(time.time()) + (24*60*60) # add 24hrs 
+        pg.update_zip(DB, zip_construct)
+    else:
+        await user.dm_channel.send("Dropbox upload is already present")
 
     await user.dm_channel.send(
         f"DOWNLOAD AVAILABLE NOW!\n"
