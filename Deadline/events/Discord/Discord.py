@@ -126,6 +126,8 @@ class DiscordEventListener(DeadlineEventListener):
                 "name": job.JobName,
                 "owner": owner,
                 "time": str(int(time.time())),
+                "frames": job.JobFrames,
+                "dir": job.JobOutputDirectories[0],
             },
         )
         pass
