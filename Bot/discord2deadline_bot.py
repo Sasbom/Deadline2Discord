@@ -766,7 +766,7 @@ async def upload_zip(
             # UPLOAD DA THING
             
             status = get_job_status(job_info.deadline_id)
-            if status == "Complete":
+            if status == "Completed":
                 asyncio.create_task(upload_procedure(interaction.user, job_info))
 
             await interaction.response.send_message("Starting upload... Check your DMs!", ephemeral=True)
