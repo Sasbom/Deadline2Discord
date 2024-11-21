@@ -20,6 +20,9 @@ from util.asyncify import asyncify
 from util.database import DB
 from util.httpserver import DeadlineHTTPCatcher
 from util.message_cache import MESSAGES
+from util.pyimzip.util import ImageZipProcess
+from util.pyimzip.image_zip import impzip_set_executable
+from util.PyDropbox.dropbox_util import DropBoxUpload
 
 SECRET = secret.Secret
 GUILD = discord.Object(id=SECRET.guild)
@@ -46,6 +49,8 @@ REGEX_TIME_HHMM = re.compile(r"(?:[2][0-3]:[0-5][\d]|[0-1]?[\d]:[0-5][\d])")
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
 
+def get_timestamp(epoch: int) -> str:
+    return f"<t:{epoch}:f>"
 
 def parse_deadlinetime(timestr: str, is_render: bool = False) -> str:
     dayhours = 0
@@ -709,6 +714,132 @@ async def renderjob_showmine(interaction: discord.Interaction):
         await interaction.response.send_message(
             "No jobs were found in your name... :skull:", ephemeral=True
         )
+
+
+upload_group = app_commands.Group(
+    name="upload", description="zip and upload completed jobs", parent=job_group
+)
+
+@upload_group.command(
+    name="pm", description="Private message test"
+)
+async def upload_pmtest(
+    interaction: discord.Interaction,
+    job_name: str
+):
+    name = interaction.user.name
+    job_info = pg.get_job(DB, deadline_name=job_name)
+    if job_info:
+        owners = job_info.owners
+        if name in owners or owners == "everyone":
+            # MEAT AND POTATOES
+            
+            if interaction.user.dm_channel is None:
+                await interaction.user.create_dm()
+            
+            name = f"{job_info.deadline_name}"
+            status = get_job_status(job_info.deadline_id)
+            msg = await interaction.user.dm_channel.send(f"Hi, the state of job {name} is `{status}`.")
+            await interaction.response.send_message("Sent you a DM!", ephemeral=True)
+        else:
+            await interaction.response.send_message(
+                "Your username is not associated with this job.", ephemeral=True
+            )
+    else:
+        await interaction.response.send_message(
+            f"Job {job_name} doesn't exist or is improperly registered.", ephemeral=True
+        )
+
+
+@upload_group.command(
+    name="upload_test", description="Upload procedure message test"
+)
+async def upload_zip(
+    interaction: discord.Interaction,
+    job_name: str
+):
+    name = interaction.user.name
+    job_info = pg.get_job(DB, deadline_name=job_name)
+    if job_info:
+        owners = job_info.owners
+        if name in owners or owners == "everyone":
+            # UPLOAD DA THING
+            
+            status = get_job_status(job_info.deadline_id)
+            if status == "Complete":
+                asyncio.create_task(upload_procedure(interaction.user, job_info))
+
+            await interaction.response.send_message("Starting upload... Check your DMs!", ephemeral=True)
+        else:
+            await interaction.response.send_message(
+                "Your username is not associated with this job.", ephemeral=True
+            )
+    else:
+        await interaction.response.send_message(
+            f"Job {job_name} doesn't exist or is improperly registered.", ephemeral=True
+        )
+
+
+async def upload_procedure(user: discord.User, job: pg.bot_job):
+    if user.dm_channel is None:
+        await user.create_dm()
+
+    zip_construct = pg.construct_zip_from_job(DB, job)
+    folder, zipfile = os.path.split(zip_construct.zip_location)
+
+    impzip_set_executable(fR"{os.path.dirname(__file__)}/util/pyimzip/zip_imagefolder.exe")
+
+    zip = ImageZipProcess(
+        folder,
+        zipfile,
+    )
+    await user.dm_channel.send(f"Uploading {job.deadline_name} renders to dropbox.")
+    zipmsg = await user.dm_channel.send("Zipping... ")
+
+    async def poll_zip_task(zip: ImageZipProcess):
+        while not zip.done:
+            await zipmsg.edit(f"Zipping... `{zip.progress}`")
+            await asyncio.sleep(5)
+        await zipmsg.edit(f"Zipping... `1000`")
+
+    waiting = asyncio.Task(zip.start_zipping())
+    printing = asyncio.Task(poll_zip_task(zip))
+
+    await asyncio.gather(waiting, printing)
+    await user.dm_channel.send(f"Zipped {job.deadline_name} renders.")
+
+    zip_construct.is_zipped = True
+
+    upload = DropBoxUpload(zip_construct.zip_location, f"/BOT/{zipfile}")
+    uploadmsg = await user.dm_channel.send("Uploading... ")
+
+    async def report(ongoing_upload: DropBoxUpload, interval: float = 5):
+        # while not ongoing_upload.done:
+        while not ongoing_upload.done:
+            if ongoing_upload.progress:
+                await uploadmsg.edit(f"Uploading... `{ongoing_upload.progress}`")
+            await asyncio.sleep(interval)
+        await uploadmsg.edit(f"Uploading... `100%`")
+
+    upload_task = asyncio.create_task(upload.start_upload_thread())
+    report_task = asyncio.create_task(report(upload))
+    
+    await asyncio.gather(upload_task, report_task,)
+
+    zip_construct.download_url = upload.url
+    zip_construct.is_made_available = True
+    zip_construct.download_since = int(time.time())
+    zip_construct.download_expires = int(time.time()) + (24*60*60) # add 24hrs 
+
+    await user.dm_channel.send(
+        f"DOWNLOAD AVAILABLE NOW!\n"
+        f"Uploaded: {get_timestamp(zip_construct.download_since)}\n"
+        f"Available until: {get_timestamp(zip_construct.download_expires)}\n"
+        f"\n"
+        f"Download here: [{zipfile}](<{zip_construct.download_url}>)"
+        )
+
+    pg.update_zip(DB, zip_construct)
 
 
 activehours_group = app_commands.Group(
