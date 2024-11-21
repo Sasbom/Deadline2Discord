@@ -7,6 +7,7 @@ from typing import Union
 
 import dropbox
 from dropbox.files import CommitInfo, UploadSessionCursor
+from .token_refresh import refresh_access_token
 
 from ..secret import Secret
 
@@ -20,6 +21,8 @@ async def dropbox_big_upload(
 ):
     # do everything in own context
     # so this can be fired off into a threading.Thread, potentially.
+    refresh_access_token()
+
     dbx = dropbox.Dropbox(
         app_key=app_key,
         app_secret=app_secret,

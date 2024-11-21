@@ -352,7 +352,7 @@ def get_job(db: pgtypes.connection, deadline_name=None, deadline_id=None, uuid=N
 
 def get_zip(db: pgtypes.connection, job: str | bot_job):
     if isinstance(job, bot_job):
-        job = bot_job.deadline_id
+        job = job.deadline_id
 
     selectfields = _dataclass_query(bot_zip)
     with db.cursor() as cursor:

@@ -21,7 +21,7 @@ from util.database import DB
 from util.httpserver import DeadlineHTTPCatcher
 from util.message_cache import MESSAGES
 from util.pyimzip.util import ImageZipProcess
-from util.pyimzip.image_zip import impzip_set_executable
+from util.pyimzip import image_zip
 from util.PyDropbox.dropbox_util import DropBoxUpload
 
 SECRET = secret.Secret
@@ -767,9 +767,10 @@ async def upload_zip(
             
             status = get_job_status(job_info.deadline_id)
             if status == "Completed":
-                asyncio.create_task(upload_procedure(interaction.user, job_info))
-
-            await interaction.response.send_message("Starting upload... Check your DMs!", ephemeral=True)
+                await interaction.response.send_message("Starting upload... Check your DMs!", ephemeral=True)
+                await asyncio.create_task(upload_procedure(interaction.user, job_info))
+            else:
+                await interaction.response.send_message("Job wasn't completed yet!", ephemeral=True)
         else:
             await interaction.response.send_message(
                 "Your username is not associated with this job.", ephemeral=True
@@ -787,7 +788,7 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
     zip_construct = pg.construct_zip_from_job(DB, job)
     folder, zipfile = os.path.split(zip_construct.zip_location)
 
-    impzip_set_executable(fR"{os.path.dirname(__file__)}/util/pyimzip/zip_imagefolder.exe")
+    image_zip._EXEC = R"C:\Users\Student\Desktop\Deadline2Discord\Bot\util\pyimzip\zip_imagefolder.exe"
 
     zip = ImageZipProcess(
         folder,
@@ -798,9 +799,9 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
 
     async def poll_zip_task(zip: ImageZipProcess):
         while not zip.done:
-            await zipmsg.edit(f"Zipping... `{zip.progress}`")
+            await zipmsg.edit(content=f"Zipping... `{zip.progress}`")
             await asyncio.sleep(5)
-        await zipmsg.edit(f"Zipping... `1000`")
+        await zipmsg.edit(content=f"Zipping... `100%`")
 
     waiting = asyncio.Task(zip.start_zipping())
     printing = asyncio.Task(poll_zip_task(zip))
@@ -817,9 +818,9 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
         # while not ongoing_upload.done:
         while not ongoing_upload.done:
             if ongoing_upload.progress:
-                await uploadmsg.edit(f"Uploading... `{ongoing_upload.progress}`")
+                await uploadmsg.edit(content=f"Uploading... `{ongoing_upload.progress}`")
             await asyncio.sleep(interval)
-        await uploadmsg.edit(f"Uploading... `100%`")
+        await uploadmsg.edit(content=f"Uploading... `100%`")
 
     upload_task = asyncio.create_task(upload.start_upload_thread())
     report_task = asyncio.create_task(report(upload))
