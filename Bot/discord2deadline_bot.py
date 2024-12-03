@@ -318,7 +318,6 @@ async def server_task_cleanupdownloads():
 
     while not client.is_closed():
         zips = pg.get_out_of_date_zips(DB)
-        print(zips)
         if zips:
             for zip in zips:
                 pg.remove_zip(DB,zip)
