@@ -1,5 +1,5 @@
 # Deadline2Discord Command Reference
-_Written for Version 0.5, as of 12th February 2024_
+_Written for Version 0.7, as of 3rd December 2024_
 
 [Go back home, to README.md](../README.md)
 
@@ -67,6 +67,16 @@ Don't schedule pausing/unpausing of specified job anymore, if it was set before 
 ### /job requeue (Job name)
 Requeue all tasks in a job, making it run all tasks again. Is exactly equivalent to requeueing in deadline monitor, and will change no parameters.
 
+### /job upload zip (Job name)
+Zip all rendered files in job associated folder, and send them to a dropbox link.
+
+THIS LINK EXPIRES IN 24 HOURS, BUT CAN BE REQUESTED AGAIN.
+
+You will get a private message updating you about the progress, and a download link.
+If someone is already uploading the job, you will have to wait until their upload is done, but you can request the link afterwards if you are a co-owner of the job.
+
+NOTE: For this feature, you will need a functioning dropbox bot, and most importantly, a Dropbox API refresh token. Other implementations with potentially an s3 will follow in the future. This feature was made to provide files to students who lost remote access to their PC, but still need their files.
+
 ### /job reschedule (Job name) (Job new name) (New Scene file [optional]) (New Directory [optional]) (New Filename [optional]) (New Frames [optional]) (New Priority [optional]) (Submit Suspended [optional])
 
 Now, This is quite the command. Luckily most of the arguments are optional.<br>
@@ -86,7 +96,7 @@ Arguments:
 
 Display a quick summary of job related commands, not unlike this paragraph. It is however not as detailed. Dutch translation is available if you provide the "Nederlands" parameter and set it to True.
 
-**TODO: Add priority argument, as well as command for requesting available pools.**
+**TODO: Add command for requesting available pools.**
 
 ---
 

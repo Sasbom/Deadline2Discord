@@ -738,39 +738,39 @@ upload_group = app_commands.Group(
     name="upload", description="zip and upload completed jobs", parent=job_group
 )
 
-@upload_group.command(
-    name="pm", description="Private message test"
-)
-async def upload_pmtest(
-    interaction: discord.Interaction,
-    job_name: str
-):
-    name = interaction.user.name
-    job_info = pg.get_job(DB, deadline_name=job_name)
-    if job_info:
-        owners = job_info.owners
-        if name in owners or owners == "everyone":
-            # MEAT AND POTATOES
-            
-            if interaction.user.dm_channel is None:
-                await interaction.user.create_dm()
-            
-            name = f"{job_info.deadline_name}"
-            status = get_job_status(job_info.deadline_id)
-            msg = await interaction.user.dm_channel.send(f"Hi, the state of job {name} is `{status}`.")
-            await interaction.response.send_message("Sent you a DM!", ephemeral=True)
-        else:
-            await interaction.response.send_message(
-                "Your username is not associated with this job.", ephemeral=True
-            )
-    else:
-        await interaction.response.send_message(
-            f"Job {job_name} doesn't exist or is improperly registered.", ephemeral=True
-        )
+# @upload_group.command(
+#     name="pm", description="Private message test"
+# )
+# async def upload_pmtest(
+#     interaction: discord.Interaction,
+#     job_name: str
+# ):
+#     name = interaction.user.name
+#     job_info = pg.get_job(DB, deadline_name=job_name)
+#     if job_info:
+#         owners = job_info.owners
+#         if name in owners or owners == "everyone":
+#             # MEAT AND POTATOES
+#             
+#             if interaction.user.dm_channel is None:
+#                 await interaction.user.create_dm()
+#             
+#             name = f"{job_info.deadline_name}"
+#             status = get_job_status(job_info.deadline_id)
+#             msg = await interaction.user.dm_channel.send(f"Hi, the state of job {name} is `{status}`.")
+#             await interaction.response.send_message("Sent you a DM!", ephemeral=True)
+#         else:
+#             await interaction.response.send_message(
+#                 "Your username is not associated with this job.", ephemeral=True
+#             )
+#     else:
+#         await interaction.response.send_message(
+#             f"Job {job_name} doesn't exist or is improperly registered.", ephemeral=True
+#         )
 
 
 @upload_group.command(
-    name="upload_test", description="Upload procedure message test"
+    name="zip", description="Zip the renders, send them to dropbox for 24 hours!"
 )
 async def upload_zip(
     interaction: discord.Interaction,
@@ -880,6 +880,7 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
 
     await user.dm_channel.send(
         f"DOWNLOAD AVAILABLE NOW!\n"
+        f"-# (Others requesting a link for the same job, will get this same link.)\n"
         f"Uploaded: {get_timestamp(zip_construct.download_since)}\n"
         f"Available until: {get_timestamp(zip_construct.download_expires)}\n"
         f"\n"
