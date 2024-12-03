@@ -313,12 +313,24 @@ async def server_task_suspensionmanager():
         await asyncio.sleep(10)
 
 
+async def server_task_cleanupdownloads():
+    await client.wait_until_ready()
+
+    while not client.is_closed():
+        zips = pg.get_out_of_date_zips(DB)
+        if zips:
+            for zip in zips:
+                pg.remove_zip(DB,zip)
+        
+        await asyncio.sleep(20)
+
+
 class MyClient(discord.Client):
     async def setup_hook(self):
         self.loop.create_task(server_task())
         self.loop.create_task(server_task_cleanup_logs())
         self.loop.create_task(server_task_suspensionmanager())
-
+        self.loop.create_task(server_task_cleanupdownloads())
 
 intents = discord.Intents.default()
 client = MyClient(intents=intents)
@@ -786,6 +798,12 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
         await user.create_dm()
 
     zip_construct = pg.construct_zip_from_job(DB, job)
+
+    if time.time() > zip_construct.download_expires and zip_construct.is_made_available:
+        pg.remove_zip(DB,zip_construct)
+        # force new zip
+        zip_construct = pg.construct_zip_from_job(DB, job)
+
     folder, zipfile = os.path.split(zip_construct.zip_location)
 
     image_zip._EXEC = R"C:\Users\Student\Desktop\Deadline2Discord\Bot\util\pyimzip\zip_imagefolder.exe"

@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Union
 
 import dropbox
+import dropbox.file_requests
+from dropbox import remo
 from dropbox.files import CommitInfo, UploadSessionCursor
 from .token_refresh import refresh_access_token
 
@@ -120,6 +122,22 @@ class DropBoxUpload:
     async def start_upload_thread(self):
         t = threading.Thread(target=self._upload_in_new_loop, daemon=True)
         t.start()
+
+
+def dropbox_remove(path: str):
+    refresh_access_token()
+    try:
+        # Delete the file
+        dbx = dropbox.Dropbox(
+            app_key=app_key,
+            app_secret=app_secret,
+            oauth2_access_token=oauth2_access_token,
+            timeout=800,
+        )
+        dbx.files_delete_v2(path=path)
+        print(f"File {path} deleted successfully.")
+    except BaseException as e:
+        print(f"Error deleting file: {e}")
 
 
 async def demo():
