@@ -48,6 +48,7 @@ REGEX_TIME_MMSS = re.compile(r"[0-5]{0,1}\d{1}[:][0-5]{1}\d{1}")
 REGEX_FRAMERANGE = re.compile(r"(?:[\d]+\s*\-{1}\s*[\d]+|[\d]+)")
 REGEX_TIME_HHMM = re.compile(r"(?:[2][0-3]:[0-5][\d]|[0-1]?[\d]:[0-5][\d])")
 
+SESSION_STATE = {"downloads_processing": []}
 
 def get_timestamp_now() -> str:
     return f"<t:{int(time.time())}:f>"
@@ -816,6 +817,13 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
     image_zip._EXEC = R"C:\Users\Student\Desktop\Deadline2Discord\Bot\util\pyimzip\zip_imagefolder.exe"
 
     await user.dm_channel.send(f"Uploading {job.deadline_name} renders to dropbox.")
+
+    if job.deadline_id in SESSION_STATE["downloads_processing"]:
+        await user.dm_channel.send(f"Job {job.deadline_name} is currently being processed.")
+        return
+    
+    SESSION_STATE["downloads_processing"].append(job.deadline_id)
+
     if not zip_construct.is_zipped:
         zip = ImageZipProcess(
             folder,
@@ -864,6 +872,11 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
         pg.update_zip(DB, zip_construct)
     else:
         await user.dm_channel.send("Dropbox upload is already present")
+    
+    try:
+        SESSION_STATE["downloads_processing"].remove(job.deadline_id)
+    except BaseException:
+        print("Couldn't remove job id from session state downloads. No idea why.")
 
     await user.dm_channel.send(
         f"DOWNLOAD AVAILABLE NOW!\n"
