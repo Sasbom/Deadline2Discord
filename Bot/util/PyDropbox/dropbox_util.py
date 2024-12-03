@@ -14,7 +14,6 @@ from ..secret import Secret
 
 app_key = Secret.dropbox_app_key
 app_secret = Secret.dropbox_app_secret
-oauth2_access_token = Secret.dropbox_oauth2_accesstoken
 
 
 async def dropbox_big_upload(
@@ -23,7 +22,9 @@ async def dropbox_big_upload(
     # do everything in own context
     # so this can be fired off into a threading.Thread, potentially.
     refresh_access_token()
-
+    
+    oauth2_access_token = Secret.dropbox_oauth2_accesstoken
+    
     dbx = dropbox.Dropbox(
         app_key=app_key,
         app_secret=app_secret,
@@ -127,6 +128,7 @@ def dropbox_remove(path: str):
     refresh_access_token()
     try:
         # Delete the file
+        oauth2_access_token = Secret.dropbox_oauth2_accesstoken
         dbx = dropbox.Dropbox(
             app_key=app_key,
             app_secret=app_secret,

@@ -22,9 +22,12 @@ from util.httpserver import DeadlineHTTPCatcher
 from util.message_cache import MESSAGES
 from util.pyimzip.util import ImageZipProcess
 from util.pyimzip import image_zip
-from util.PyDropbox.dropbox_util import DropBoxUpload
+from util.PyDropbox.dropbox_util import DropBoxUpload, dropbox_remove
+from util.PyDropbox.token_refresh import refresh_access_token
 
 SECRET = secret.Secret
+refresh_access_token()
+
 GUILD = discord.Object(id=SECRET.guild)
 
 # Establish connection with deadline web service. 
@@ -801,6 +804,8 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
 
     if time.time() > zip_construct.download_expires and zip_construct.is_made_available:
         pg.remove_zip(DB,zip_construct)
+        folder, zipfile = os.path.split(zip_construct.zip_location)
+        dropbox_remove(f"/BOT/{zipfile}")
         # force new zip
         zip_construct = pg.construct_zip_from_job(DB, job)
 
@@ -818,8 +823,9 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
 
         async def poll_zip_task(zip: ImageZipProcess):
             while not zip.done:
-                await zipmsg.edit(content=f"Zipping... `{zip.progress}`")
-                await asyncio.sleep(5)
+                if zip.progress:
+                    await zipmsg.edit(content=f"Zipping... `{zip.progress}`")
+                await asyncio.sleep(2)
             await zipmsg.edit(content=f"Zipping... `100%`")
 
         waiting = asyncio.Task(zip.start_zipping())
@@ -844,7 +850,6 @@ async def upload_procedure(user: discord.User, job: pg.bot_job):
                     await uploadmsg.edit(content=f"Uploading... `{ongoing_upload.progress}`")
                 await asyncio.sleep(interval)
             await uploadmsg.edit(content=f"Uploading... `100%`")
-
         upload_task = asyncio.create_task(upload.start_upload_thread())
         report_task = asyncio.create_task(report(upload))
 
