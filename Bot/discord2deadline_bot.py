@@ -324,6 +324,8 @@ async def server_task_cleanupdownloads():
         if zips:
             for zip in zips:
                 pg.remove_zip(DB,zip)
+                folder, zipfile = os.path.split(zip.zip_location)
+                dropbox_remove(f"/BOT/{zipfile}")
         
         await asyncio.sleep(20)
 
