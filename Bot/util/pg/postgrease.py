@@ -371,8 +371,7 @@ def get_out_of_date_zips(db: pgtypes.connection) -> list[bot_zip]:
     selectfields = _dataclass_query(bot_zip)
     with db.cursor() as cursor:
         cursor.execute(
-            f"SELECT {selectfields} FROM {Secret.pg_schema}.zip WHERE is_made_available='true' AND download_expires < %s",
-            (int(time.time()),),
+            f"SELECT {selectfields} FROM {Secret.pg_schema}.zip WHERE is_made_available='true' AND download_expires < {Secret.pg_schema}.unix_time()"
         )
         zipsdata = cursor.fetchall()
     if zipsdata:
@@ -418,7 +417,7 @@ def update_zip(db, zip: bot_zip):
 def remove_zip(db: pgtypes.connection, zip: bot_zip):
     with db.cursor() as cursor:
         cursor.execute(
-            f"DELETE FROM {Secret.pg_schema}.zip WHERE 'deadline_id'=%s", (zip.deadline_id,)
+            f"DELETE FROM {Secret.pg_schema}.zip WHERE deadline_id=%s", (zip.deadline_id,)
         )
     db.commit()
 
