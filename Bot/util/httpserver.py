@@ -116,6 +116,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 ).encode()
             )
 
+            job_group_id = None
             job_name = data_dict["name"][0]
             job_id = data_dict["id"][0]
             job_owner = data_dict["owner"][0]
@@ -125,6 +126,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             job_frames = [0]
             if "frames" in data_dict.keys():
                 job_frames = sorted(framelist(data_dict["frames"][0]))
+            if "prism_project" in data_dict.keys():
+                job_prism_project = data_dict["prism_project"][0]
+                job_group_id = pg.get_group(DB, job_prism_project, True).uuid
 
             job_info = pg.get_job(DB, deadline_name=job_name)
             if not job_info:
@@ -146,7 +150,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     frames=len(job_frames),
                     frame_start=job_frames[0],
                     frame_end=job_frames[-1],
-                    group_id=None,
+                    group_id=job_group_id,
                     root=data_dict["dir"][0],
                     done=False,
                 )

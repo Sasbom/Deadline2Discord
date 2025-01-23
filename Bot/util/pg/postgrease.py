@@ -40,8 +40,8 @@ class bot_job:
 @dataclass
 class bot_group:
     name: str
-    members: List[str]
     owners: List[str]
+    members: List[str] = field(default_factory=list)
     locked: bool = field(default=False)
     prism: bool = field(default=False)
     uuid: str = field(default=None)
@@ -200,8 +200,8 @@ def insert_group(db: pgtypes.connection, group: bot_group):
         return
     with db.cursor() as cursor:
         cursor.execute(
-            f"INSERT INTO {Secret.pg_schema}.groups (name, members, owners) VALUES (%s,%s::uuid[],%s::uuid[])",
-            (group.name, group.members, group.owners),
+            f"INSERT INTO {Secret.pg_schema}.groups (name, members, owners, locked, prism) VALUES (%s,%s,%s,%s,%s)",
+            (group.name, group.members, group.owners, group.locked, group.prism),
         )
     db.commit()
 

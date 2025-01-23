@@ -113,7 +113,10 @@ class DiscordEventListener(DeadlineEventListener):
         self.LogStdout("Discord event plugin noticed that a job has started")
 
         prism_file = job.GetJobEnvironmentKeyValue("prism_project")
-        self.LogStdout("prism file " + str(prism_file))
+        prism_project = detect_prism_job(job)
+        prism_project = prism_project if prism_project else ""
+        if prism_file:
+            self.LogStdout("prism file " + str(prism_file))
 
         owner = get_owner(job, self._ip, self._port)
 
@@ -128,6 +131,7 @@ class DiscordEventListener(DeadlineEventListener):
                 "time": str(int(time.time())),
                 "frames": job.JobFrames,
                 "dir": job.JobOutputDirectories[0],
+                "prism_project": prism_project
             },
         )
         pass
@@ -174,7 +178,8 @@ class DiscordEventListener(DeadlineEventListener):
 
 def compose_job_dict(job: Job, ip, port):
     owner = get_owner(job, ip, port)
-
+    prism_project = detect_prism_job(job)
+    prism_project = prism_project if prism_project else ""
     return {
         "name": job.JobName,
         "pool": compose_poolstring(job.JobPool, job.JobSecondaryPool),
@@ -184,6 +189,7 @@ def compose_job_dict(job: Job, ip, port):
         "id": job.JobId,
         "thumbnail": str(get_thumbnail(job)),
         "ping": str(owner),
+        "prism_project": prism_project,
     }
 
 

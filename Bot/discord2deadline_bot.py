@@ -1113,7 +1113,8 @@ async def create_prismproject(interaction: discord.Interaction, prism_project: s
             ephemeral=True,
         )
     else:
-        pg.bot_group(prism_project, owners=[user], prism=True)
+        group = pg.bot_group(prism_project, owners=[user], prism=True)
+        pg.insert_group(DB, group)
         await interaction.response.send_message(
             f"Registered Prism project `{prism_project}` in the system, with you ,`@{user}` being the owner.",
             ephemeral=True,
@@ -1243,7 +1244,7 @@ async def unlock_prismproject(interaction: discord.Interaction, prism_project: s
     is_admin = interaction.user.guild_permissions.administrator
     p = pg.get_group(DB, prism_project, True)
     if p is not None and (user in p.owners or is_admin):
-        p.locked = True
+        p.locked = False
         pg.update_group(DB, p)
         admin_msg = "`Admin override`: " if (user not in p.owners and is_admin) else ""
         await interaction.response.send_message(
@@ -1307,7 +1308,7 @@ async def prism_help(
                     **/prism subscribe:** Meld je aan om gepingt te worden voor alle renders uit dit Prism project.\n\
                     **/prism unsubscribe:** Meld je af van een Prism project. Geen pings meer!\n\n\
                     **/prism lock:** Zet een project op slot. Als je de eigenaar bent, voorkom je zo ongewenste registraties.\n\
-                    **/prism unlock:** Hal een project van slot. Als je de eigenaar bent, kan je zo mensen weer de optie geven om aan te melden.\n\n\
+                    **/prism unlock:** Haal een project van slot. Als je de eigenaar bent, kan je zo mensen weer de optie geven om aan te melden.\n\n\
                     **/prism list:** Laat alle geregistreerde prism projecten zien!"
     embed = discord.Embed(
         title="Prism help", color=DEADLINE_ORANGE, description=help_txt
