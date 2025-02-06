@@ -2,6 +2,7 @@ import json
 import socket
 import threading
 import time
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import parse
 
@@ -11,6 +12,7 @@ from . import secret
 from .database import DB
 from .message_cache import MESSAGES
 from .pg import postgrease as pg
+from . import exr_helper as exr
 
 SECRET = secret.Secret
 
@@ -76,6 +78,12 @@ def compose_resultembed(
     filename = None
     if "thumbnail" in data_dict.keys() and not has_failed:
         filename = data_dict["thumbnail"]
+        # EXR conversion.
+        filename_path = Path(filename)
+        if filename_path.suffix in (".exr",".EXR"):
+            result = exr.convert_exr_to_png(filename)
+            if result:
+                filename = str(result)
         file = discord.File(filename)
 
     return embed, tag_message, file, filename
