@@ -83,8 +83,12 @@ def compose_resultembed(
         if filename_path.suffix in (".exr",".EXR"):
             result = exr.convert_exr_to_png(filename)
             if result:
-                filename = str(result)
-        file = discord.File(filename)
+                exr_filename = str(result)
+                file = discord.File(exr_filename)
+            else:
+                file = discord.File(filename)
+        else:
+            file = discord.File(filename)
 
     return embed, tag_message, file, filename
 
