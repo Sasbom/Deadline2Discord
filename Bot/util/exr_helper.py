@@ -71,21 +71,3 @@ def convert_exr_to_png(path: str):
             image.save(str(png_img))
             return png_img
     return None
-
-
-# source_img = R"X:\_PROJECTS\ANI2_3D\project_TheSearch\04_Render\Shots\SET_2_SH_18\EXR\SH-18_V01_0061.exr"
-# 
-# 
-# with exr.File(source_img) as exrfile:
-#     complayers = blender_get_combined_layers(exrfile)
-#     image = comp_layers(exrfile,*complayers)
-#     image.save("output_test_comp.png")
-
-# with exr.File(source_img) as exrfile:
-#     img_data = exrfile.channels()["BG.Combined"]
-#     correct_srgb = np.vectorize(linear_to_srgb)
-#     rgb_data = correct_srgb(img_data.pixels)
-#     image_normalized = np.clip(rgb_data*255,0,255).astype(np.uint8)
-#     
-#     out_image = Image.fromarray(image_normalized)
-#     out_image.save("output_test.png")
