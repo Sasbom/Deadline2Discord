@@ -2,10 +2,10 @@ import json
 import socket
 import threading
 import time
+import os
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import parse
-
 import discord
 
 from . import secret
@@ -13,7 +13,7 @@ from .database import DB
 from .message_cache import MESSAGES
 from .pg import postgrease as pg
 from . import exr_helper as exr
-
+from .image_optimize import optimize_image
 SECRET = secret.Secret
 
 
@@ -80,14 +80,30 @@ def compose_resultembed(
         filename = data_dict["thumbnail"]
         # EXR conversion.
         filename_path = Path(filename)
+        if not filename_path.suffix:
+            # sometimes, some unfortunate people publish things without an extension.
+            folder = filename_path.parent
+            files = os.listdir(folder)
+            filename_it = iter(f for f in files if str(filename_path) in f)
+            file = next(filename_it, None)
+            if file:
+                filename_path = folder / file
+                filename = str(filename_path)
+        
         if filename_path.suffix in (".exr",".EXR"):
             result = exr.convert_exr_to_png(filename)
             if result:
                 exr_filename = str(result)
+                if (os.stat(filename_path).st_size/ 1_000_000) > 7.5:
+                    exr_filename = str(optimize_image(result))
                 file = discord.File(exr_filename)
             else:
+                if (os.stat(filename_path).st_size/ 1_000_000) > 7.5:
+                    filename = str(optimize_image(filename_path))
                 file = discord.File(filename)
         else:
+            if (os.stat(filename_path).st_size/ 1_000_000) > 7.5:
+                filename = str(optimize_image(filename_path))
             file = discord.File(filename)
 
     return embed, tag_message, file, filename

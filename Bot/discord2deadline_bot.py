@@ -25,6 +25,7 @@ from util.pyimzip import image_zip
 from util.PyDropbox.dropbox_util import DropBoxUpload, dropbox_remove
 from util.PyDropbox.token_refresh import refresh_access_token
 
+
 SECRET = secret.Secret
 refresh_access_token()
 
