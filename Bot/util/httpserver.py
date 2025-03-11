@@ -90,8 +90,10 @@ def compose_resultembed(
                 filename_path = folder / file
                 filename = str(filename_path)
         
+        file_upload = filename
+
         if filename_path.suffix in (".exr",".EXR"):
-            result = exr.convert_exr_to_png(filename)
+            result = exr.convert_exr_to_png(file_upload)
             if result:
                 exr_filename = str(result)
                 if (os.stat(filename_path).st_size/ 1_000_000) > 7.5:
@@ -99,12 +101,12 @@ def compose_resultembed(
                 file = discord.File(exr_filename)
             else:
                 if (os.stat(filename_path).st_size/ 1_000_000) > 7.5:
-                    filename = str(optimize_image(filename_path))
-                file = discord.File(filename)
+                    file_upload = str(optimize_image(filename_path))
+                file = discord.File(file_upload)
         else:
             if (os.stat(filename_path).st_size/ 1_000_000) > 7.5:
-                filename = str(optimize_image(filename_path))
-            file = discord.File(filename)
+                file_upload = str(optimize_image(filename_path))
+            file = discord.File(file_upload)
 
     return embed, tag_message, file, filename
 
