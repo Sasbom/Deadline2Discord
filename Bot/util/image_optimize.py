@@ -9,7 +9,7 @@ def optimize_image(image_path: Path, scale = 0.75, qual = 75):
     new_path = image_path.parent / f"{filename}_opt.png"
     img = Image.open(image_path)
     w, h = img.size
-    new_w, new_h = w*scale, h*scale
+    new_w, new_h = int(w*scale), int(h*scale)
     img.resize((new_w,new_h))
     img.save(new_path,optimize=True,quality=qual)
     return new_path
