@@ -1131,6 +1131,7 @@ async def remove_prismproject(interaction: discord.Interaction, prism_project: s
     is_admin = interaction.user.guild_permissions.administrator
     p = pg.get_group(DB, groupname=prism_project, isprism=True)
     if p is not None and (user in p.owners or is_admin):
+        print(p)
         pg.remove_group(DB, p)
         admin_msg = "`Admin override`: " if (user in p.owners and is_admin) else ""
         await interaction.response.send_message(

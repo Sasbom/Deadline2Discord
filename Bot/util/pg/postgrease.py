@@ -189,7 +189,7 @@ def insert_user(db: pgtypes.connection, user: bot_user):
 def remove_user(db: pgtypes.connection, user: bot_user):
     with db.cursor() as cursor:
         cursor.execute(
-            f"DELETE FROM {Secret.pg_schema}.users WHERE 'uuid'=%s", (user.uuid,)
+            f"DELETE FROM {Secret.pg_schema}.users WHERE uuid=%s", (user.uuid,)
         )
     db.commit()
 
@@ -209,7 +209,7 @@ def insert_group(db: pgtypes.connection, group: bot_group):
 def remove_group(db: pgtypes.connection, group: bot_group):
     with db.cursor() as cursor:
         cursor.execute(
-            f"DELETE FROM {Secret.pg_schema}.groups WHERE 'uuid'=%s", (group.uuid,)
+            f"DELETE FROM {Secret.pg_schema}.groups WHERE uuid=%s", (group.uuid,)
         )
     db.commit()
 
@@ -312,7 +312,7 @@ def get_groups(db: pgtypes.connection, prism=None):
     selectfields = _dataclass_query(bot_group)
     with db.cursor() as cursor:
         cursor.execute(
-            f"SELECT {selectfields} FROM {Secret.pg_schema}.groups {filterprism} LIMIT 1"
+            f"SELECT {selectfields} FROM {Secret.pg_schema}.groups {filterprism}"
         )
         groupsdata = cursor.fetchall()
     if groupsdata:
