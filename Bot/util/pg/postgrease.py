@@ -8,6 +8,8 @@ import psycopg2.extensions as pgtypes
 
 from ..secret import Secret
 
+from functools import wraps
+
 
 @dataclass
 class bot_user:
@@ -57,6 +59,21 @@ class bot_zip:
     download_since: int = field(default=0)
     download_expires: int = field(default=0)
 
+def attempt(func):
+    @wraps(func)
+    def wrapper(db: pgtypes.connection, *args, **kwargs):
+        tries = 3
+        if db.closed:
+            db = connect_noinit()
+        while (tries > 0):
+            try:
+                val = func(db, *args, **kwargs)
+                return val
+            except pg.Error:
+                tries -= 1
+                db = connect_noinit()
+        return None
+    return wrapper
 
 # ENSURE PRESENCE OF STUFF
 def ensure_schema_tables(db: pgtypes.connection):
@@ -164,7 +181,7 @@ def ensure_schema_tables(db: pgtypes.connection):
 
         db.commit()
 
-
+@attempt
 def ensure_name_available(db: pgtypes.connection, name):
     with db.cursor() as cursor:
         cursor.execute(
@@ -174,6 +191,7 @@ def ensure_name_available(db: pgtypes.connection, name):
     return name not in allnames
 
 
+@attempt
 def insert_user(db: pgtypes.connection, user: bot_user):
     if not ensure_name_available(db, user.name):
         print("Name not unique")
@@ -186,6 +204,7 @@ def insert_user(db: pgtypes.connection, user: bot_user):
     db.commit()
 
 
+@attempt
 def remove_user(db: pgtypes.connection, user: bot_user):
     with db.cursor() as cursor:
         cursor.execute(
@@ -194,6 +213,7 @@ def remove_user(db: pgtypes.connection, user: bot_user):
     db.commit()
 
 
+@attempt
 def insert_group(db: pgtypes.connection, group: bot_group):
     if not ensure_name_available(db, group.name):
         print("Name not unique")
@@ -206,6 +226,7 @@ def insert_group(db: pgtypes.connection, group: bot_group):
     db.commit()
 
 
+@attempt
 def remove_group(db: pgtypes.connection, group: bot_group):
     with db.cursor() as cursor:
         cursor.execute(
@@ -214,6 +235,7 @@ def remove_group(db: pgtypes.connection, group: bot_group):
     db.commit()
 
 
+@attempt
 def insert_job(db: pgtypes.connection, job: bot_job):
     with db.cursor() as cursor:
         cursor.execute(
@@ -259,6 +281,7 @@ def _dataclass_updatestr(cls):
     return (", ".join(f'"{f}"=%s' for f in data), data)
 
 
+@attempt
 def get_user(db: pgtypes.connection, username=None, discordid=None):
     args = (username, discordid)
     if not _ensure_unique_args(args):
@@ -284,6 +307,7 @@ def get_user(db: pgtypes.connection, username=None, discordid=None):
         return None
 
 
+@attempt
 def get_group(db: pgtypes.connection, groupname=None, isprism=False):
     if groupname is None:
         return
@@ -301,6 +325,7 @@ def get_group(db: pgtypes.connection, groupname=None, isprism=False):
         return None
 
 
+@attempt
 def get_groups(db: pgtypes.connection, prism=None):
     filterprism = ""
     if prism is not None:
@@ -320,6 +345,7 @@ def get_groups(db: pgtypes.connection, prism=None):
     return None
 
 
+@attempt
 def get_job(db: pgtypes.connection, deadline_name=None, deadline_id=None, uuid=None):
     args = (deadline_name, deadline_id, uuid)
     if not _ensure_unique_args(args):
@@ -350,6 +376,7 @@ def get_job(db: pgtypes.connection, deadline_name=None, deadline_id=None, uuid=N
         return None
 
 
+@attempt
 def get_zip(db: pgtypes.connection, job: str | bot_job):
     if isinstance(job, bot_job):
         job = job.deadline_id
@@ -365,8 +392,9 @@ def get_zip(db: pgtypes.connection, job: str | bot_job):
         return bot_zip(*zipdata)
     else:
         return None
-    
 
+  
+@attempt
 def get_out_of_date_zips(db: pgtypes.connection) -> list[bot_zip]:
     selectfields = _dataclass_query(bot_zip)
     with db.cursor() as cursor:
@@ -379,6 +407,7 @@ def get_out_of_date_zips(db: pgtypes.connection) -> list[bot_zip]:
     return None
 
 
+@attempt
 def construct_zip_from_job(db: pgtypes.connection, job: bot_job):
     if z := get_zip(db, job):
         return z
@@ -401,6 +430,7 @@ def construct_zip_from_job(db: pgtypes.connection, job: bot_job):
     return zipobj
 
 
+@attempt
 def update_zip(db, zip: bot_zip):
     data = [f.name for f in fields(zip.__class__) if f.name != "deadline_id"]
     update, attrs = (", ".join(f'"{f}"=%s' for f in data), data)
@@ -414,6 +444,7 @@ def update_zip(db, zip: bot_zip):
     db.commit()
 
 
+@attempt
 def remove_zip(db: pgtypes.connection, zip: bot_zip):
     with db.cursor() as cursor:
         cursor.execute(
@@ -422,6 +453,7 @@ def remove_zip(db: pgtypes.connection, zip: bot_zip):
     db.commit()
 
 
+@attempt
 def get_jobs_user(
     db: pgtypes.connection,
     user: bot_user,
@@ -449,6 +481,7 @@ def get_jobs_user(
     return None
 
 
+@attempt
 def get_officehours_jobs(db: pgtypes.connection):
     selectfields = _dataclass_query(bot_job)
     with db.cursor() as cursor:
@@ -461,6 +494,7 @@ def get_officehours_jobs(db: pgtypes.connection):
     return None
 
 
+@attempt
 def get_jobids(db: pgtypes.connection):
     """Get all job ids not marked as done."""
     with db.cursor() as cursor:
@@ -474,6 +508,7 @@ def get_jobids(db: pgtypes.connection):
     return None
 
 
+@attempt
 def update_job(db: pgtypes.connection, job: bot_job):
     update, attrs = _dataclass_updatestr(bot_job)
     vals = [getattr(job, a) for a in attrs]
@@ -486,6 +521,7 @@ def update_job(db: pgtypes.connection, job: bot_job):
     db.commit()
 
 
+@attempt
 def update_group(db: pgtypes.connection, group: bot_group):
     update, attrs = _dataclass_updatestr(bot_group)
     vals = [getattr(group, a) for a in attrs]
@@ -498,6 +534,7 @@ def update_group(db: pgtypes.connection, group: bot_group):
     db.commit()
 
 
+@attempt
 def user_uuid(db: pgtypes.connection, name):
     with db.cursor() as cursor:
         cursor.execute(
@@ -512,4 +549,10 @@ def connect() -> pgtypes.connection:
         f"host={Secret.pg_address} user={Secret.pg_user} password={Secret.pg_password} dbname={Secret.pg_database} port={Secret.pg_port}"
     )
     ensure_schema_tables(db)
+    return db
+
+def connect_noinit() -> pgtypes.connection:
+    db = pg.connect(
+        f"host={Secret.pg_address} user={Secret.pg_user} password={Secret.pg_password} dbname={Secret.pg_database} port={Secret.pg_port}"
+    )
     return db
