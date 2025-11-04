@@ -172,7 +172,20 @@ class RequestHandler(BaseHTTPRequestHandler):
                 #         "job_time": f"{job_time}",
                 #     }
                 # )
-                owner_list = [o.strip() for o in job_owner.split(",")]
+                owner_list_raw = [o.strip() for o in job_owner.split(",")]
+                owner_list = []
+                for owner in owner_list_raw:
+                    if owner.startswith("project:") and job_group_id is None:
+                        group = owner.removeprefix("project:")
+                        grp = pg.get_group(DB,group)
+                        if grp is None:
+                            continue
+                        members = grp.members
+                        job_group_id = grp.uuid
+                        owner_list.extend(members)
+                        continue
+                    owner_list.append(owner)
+
                 new_job = pg.bot_job(
                     deadline_name=job_name,
                     deadline_id=job_id,
