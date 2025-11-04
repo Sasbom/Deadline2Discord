@@ -1321,6 +1321,195 @@ async def prism_help(
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+project_group = app_commands.Group(name="channel", description="Project channels for collecting users & subscribing to.")
+
+
+@project_group.command(
+    name="list",
+    description="List all registered groups, their owners, and their subscribers.",
+)
+async def list_project_channels(interaction: discord.Interaction):
+    group_info = pg.get_groups(DB, prism=False)
+    if group_info:
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        response_txt = ["### All project channels in the system:"]
+        for p in group_info:
+            locked = "`Locked` :locked:" if p.locked else "`Unlocked` :unlock:"
+            owner = ", ".join(p.owners)
+            subs = ", ".join(p.members) if p.members else "No one has subbed yet..."
+            response_txt.append(
+                f"> `{p.name}`,  Owned by: `{owner}`, {locked}\n> - Subscribers: `{subs}`\n"
+            )
+        await interaction.followup.send("\n".join(response_txt))
+    else:
+        await interaction.response.send_message(
+            "No project channels were found. :skull:", ephemeral=True
+        )
+
+
+@project_group.command(
+    name="register", description="Register the name of a project channel."
+)
+async def create_project_channel(interaction: discord.Interaction, project: str):
+    project = project.strip()  # normalize name
+    user = interaction.user.name
+    p = pg.get_group(DB, groupname=project, isprism=False)
+    if p is not None:
+        await interaction.response.send_message(
+            f"Project channel `{project}` is already present in the system.",
+            ephemeral=True,
+        )
+    else:
+        group = pg.bot_group(project, owners=[user], prism=True)
+        pg.insert_group(DB, group)
+        await interaction.response.send_message(
+            f"Registered project channel `{project}` in the system, with you ,`@{user}` being the owner.",
+            ephemeral=True,
+        )
+
+
+@project_group.command(
+    name="deregister", description="Deregister the name of a project channel."
+)
+async def remove_project_channel(interaction: discord.Interaction, project: str):
+    project = project.strip()  # normalize name
+    user = interaction.user.name
+    is_admin = interaction.user.guild_permissions.administrator
+    p = pg.get_group(DB, groupname=project, isprism=False)
+    if p is not None and (user in p.owners or is_admin):
+        print(p)
+        pg.remove_group(DB, p)
+        admin_msg = "`Admin override`: " if (user in p.owners and is_admin) else ""
+        await interaction.response.send_message(
+            f"{admin_msg} Project channel `{project}` has been removed from the system.",
+            ephemeral=True,
+        )
+    elif p is not None and (user not in p.owners or not is_admin):
+        await interaction.response.send_message(
+            f"Project channel `{project}` is not yours! You can't remove it.",
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(
+            f"No records of project channel `{project}` found.", ephemeral=True
+        )
+
+
+@project_group.command(
+    name="lock", description="Lock project channel, allowing no more subscribers."
+)
+async def lock_project_channel(interaction: discord.Interaction, project: str):
+    project = project.strip()  # normalize name
+    user = interaction.user.name
+    is_admin = interaction.user.guild_permissions.administrator
+    p = pg.get_group(DB, project, isprism=False)
+    if p is not None and (user in p.owners or is_admin):
+        p.locked = True
+        pg.update_group(DB, p)
+        admin_msg = "`Admin override`: " if (user not in p.owners and is_admin) else ""
+        await interaction.response.send_message(
+            f"{admin_msg}project channel `{project}` has been locked!\nNo one can subscribe/unsubscribe anymore.",
+            ephemeral=True,
+        )
+    elif p is not None and (user not in p.owners or not is_admin):
+        await interaction.response.send_message(
+            f"project channel `{project}` is not yours! You can't lock it.",
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(
+            f"No records of project channel `{project}` found.", ephemeral=True
+        )
+
+
+@project_group.command(
+    name="unlock", description="UnLock project channel, allowing subscribers."
+)
+async def unlock_project_channel(interaction: discord.Interaction, project: str):
+    project = project.strip()  # normalize name
+    user = interaction.user.name
+    is_admin = interaction.user.guild_permissions.administrator
+    p = pg.get_group(DB, project, prism=False)
+    if p is not None and (user in p.owners or is_admin):
+        p.locked = False
+        pg.update_group(DB, p)
+        admin_msg = "`Admin override`: " if (user not in p.owners and is_admin) else ""
+        await interaction.response.send_message(
+            f"{admin_msg}Project channel `{project}` has been unlocked!\nPeople can subscribe/unsubscribe again.",
+            ephemeral=True,
+        )
+    elif p is not None and (user not in p.owners or not is_admin):
+        await interaction.response.send_message(
+            f"Project channel `{project}` is not yours! You can't unlock it.",
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(
+            f"No records of project channel `{project}` found.", ephemeral=True
+        )
+
+
+@project_group.command(name="subscribe", description="Subscribe to a project channel")
+async def user_join_prismproject(interaction: discord.Interaction, project: str):
+    project = project.strip()  # normalize name
+    user = interaction.user.name
+    if not get_user_pingable(user):
+        await interaction.response.send_message(
+            "To perform this action, you must register yourself first!\nUse `/register` to register your username to be pingable.",
+            ephemeral=True,
+        )
+    p = pg.get_group(DB, project, prism=False)
+    if p is not None and not p.locked:
+        if user in p.members:
+            await interaction.response.send_message(
+                f"You are already subscribed to `{project}`.", ephemeral=True
+            )
+        else:
+            p.members.append(user)
+            pg.update_group(DB, p)
+            await interaction.response.send_message(
+                f"Succesfully subscribed to `{project}`!", ephemeral=True
+            )
+    elif p is not None and p.locked:
+        await interaction.response.send_message(
+            f"Project channel: `{project}` is not able to be subscribed to, because the owner locked it.",
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(
+            f"Register project channel `{project}` before subscribing to it!",
+            ephemeral=True,
+        )
+
+
+@project_group.command(name="unsubscribe", description="Unsubscribe from a project channel")
+async def user_leave_prismproject(interaction: discord.Interaction, project: str):
+    project = project.strip()  # normalize name
+    user = interaction.user.name
+    p = pg.get_group(DB, project, prism=False)
+    if p is not None and not p.locked:
+        if user not in p.members:
+            await interaction.response.send_message(
+                f"You are not subscribed to `{project}`.", ephemeral=True
+            )
+        elif user in p.members:
+            p.members = [u for u in p.members if u != user]
+            pg.update_group(DB, p)
+            await interaction.response.send_message(
+                f"Succesfully unsubscribed from `{project}`!", ephemeral=True
+            )
+    elif p is not None and p.locked:
+        await interaction.response.send_message(
+            f"Project channel: `{project}` is not able to be unsubscribed from, because the owner locked it.",
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(
+            f"Register project channel `{project}` before subscribing to it!",
+            ephemeral=True,
+        )
+
+
 calc_group = app_commands.Group(name="calculate", description="Calculate things!")
 
 
