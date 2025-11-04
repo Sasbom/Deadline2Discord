@@ -1598,6 +1598,7 @@ async def force_gc(interaction: discord.Interaction):
 
 
 tree.add_command(job_group, guild=GUILD)
+tree.add_command(project_group, guild=GUILD) # prism independant groups
 tree.add_command(prism_group, guild=GUILD)  # prism integration
 tree.add_command(calc_group, guild=GUILD)
 tree.add_command(farm_group, guild=GUILD)
