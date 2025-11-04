@@ -37,6 +37,7 @@ class Secrets(metaclass=SingletonMetaClass):
                 self.guild = int(data["guild_id"])
                 self.deadline_port = data["deadline_webserver_port"]
                 self.internal_http_port = data["internal_http_port"]
+                self.default_user = data["default_user"]
                 self.pg_user = data["pg_user"]
                 self.pg_password = data["pg_password"]
                 self.pg_database = data["pg_database"]
@@ -55,6 +56,7 @@ class Secrets(metaclass=SingletonMetaClass):
                     "dedicated_channel_id": 123456789123456789,
                     "deadline_webserver_port": 8081,
                     "internal_http_port": 1337,
+                    "default_user": "",
                     "pg_user": "postgres",
                     "pg_password": "postgres",
                     "pg_database": "postgres",

@@ -149,7 +149,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             job_group_id = None
             job_name = data_dict["name"][0]
             job_id = data_dict["id"][0]
-            job_owner = data_dict["owner"][0]
+            job_owner = SECRET.default_user
+            if "owner" in data_dict.keys():
+                job_owner = data_dict["owner"][0]
             job_time = "0"
             if "time" in data_dict.keys():
                 job_time = data_dict["time"][0]
