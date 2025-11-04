@@ -73,6 +73,8 @@ def compose_resultembed(
                     name=":speaking_head: User(s): ", value=users, inline=False
                 )
                 tag_message = f"{emote} Render {data_dict['status']}! {users}"
+    if "group" in data_dict.keys():
+        embed.add_field(name=":factory: Channel:", value=data_dict["group"])
 
     file = None
     filename = None
@@ -163,6 +165,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 job_group_id = pg.get_group(DB, job_prism_project, True).uuid
 
             job_info = pg.get_job(DB, deadline_name=job_name)
+
+
             if not job_info:
                 # DB.insert(
                 #     {
@@ -173,11 +177,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 #     }
                 # )
                 owner_list_raw = [o.strip() for o in job_owner.split(",")]
-                owner_list = []
+                owner_list = list()
+                #print(job_group_id)
                 for owner in owner_list_raw:
                     if owner.startswith("project:") and job_group_id is None:
                         group = owner.removeprefix("project:")
-                        grp = pg.get_group(DB,group)
+                        #print(group)
+                        grp = pg.get_group(DB,group,isprism=False)
+                        #print(grp)
                         if grp is None:
                             continue
                         members = grp.members
@@ -226,6 +233,28 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         else:
             data_dict = {k: v[0] for k, v in data_dict.items()}  # get first of all.
+
+            owner_list_raw = [o.strip() for o in data_dict["ping"].split(",")]
+            owner_list = list()
+            #print(job_group_id)
+            has_group = False
+            for owner in owner_list_raw and not has_group:
+                if owner.startswith("project:"):
+                    group = owner.removeprefix("project:")
+                    #print(group)
+                    grp = pg.get_group(DB,group,isprism=False)
+                    #print(grp)
+                    if grp is None:
+                        continue
+                    members = grp.members
+                    job_group_id = grp.uuid
+                    owner_list.extend(members)
+                    has_group = True
+                    data_dict["group"] = grp.name
+                    continue
+                owner_list.append(owner)
+            data_dict["ping"] = ", ".join(owner_list)
+
             embed, tag_txt, file, filename = compose_resultembed(data_dict=data_dict)
 
             embed_msg = tag_msg = pic_msg = label_msg = None
