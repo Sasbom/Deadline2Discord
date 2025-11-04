@@ -226,7 +226,7 @@ def get_user_pingable(username: str):
 
 # testing out an embed.
 embed_msg = discord.Embed(
-    title="Deadline bot v0.7\nby Sas van Gulik; @sasbom",
+    title="Deadline bot v0.8\nby Sas van Gulik; @sasbom",
     description="Discord integration for AWS Thinkbox Deadline :brain:",
     color=DEADLINE_ORANGE,
 )
@@ -1360,7 +1360,7 @@ async def create_project_channel(interaction: discord.Interaction, project: str)
             ephemeral=True,
         )
     else:
-        group = pg.bot_group(project, owners=[user], prism=True)
+        group = pg.bot_group(project, owners=[user], prism=False)
         pg.insert_group(DB, group)
         await interaction.response.send_message(
             f"Registered project channel `{project}` in the system, with you ,`@{user}` being the owner.",
@@ -1458,7 +1458,7 @@ async def user_join_prismproject(interaction: discord.Interaction, project: str)
             "To perform this action, you must register yourself first!\nUse `/register` to register your username to be pingable.",
             ephemeral=True,
         )
-    p = pg.get_group(DB, project, prism=False)
+    p = pg.get_group(DB, project, isprism=False)
     if p is not None and not p.locked:
         if user in p.members:
             await interaction.response.send_message(
@@ -1486,7 +1486,7 @@ async def user_join_prismproject(interaction: discord.Interaction, project: str)
 async def user_leave_prismproject(interaction: discord.Interaction, project: str):
     project = project.strip()  # normalize name
     user = interaction.user.name
-    p = pg.get_group(DB, project, prism=False)
+    p = pg.get_group(DB, project, isprism=False)
     if p is not None and not p.locked:
         if user not in p.members:
             await interaction.response.send_message(
