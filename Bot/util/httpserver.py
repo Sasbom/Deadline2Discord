@@ -238,8 +238,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             owner_list = list()
             #print(job_group_id)
             has_group = False
-            for owner in owner_list_raw and not has_group:
+            for owner in owner_list_raw:
                 if owner.startswith("project:"):
+                    if has_group:
+                        continue
                     group = owner.removeprefix("project:")
                     #print(group)
                     grp = pg.get_group(DB,group,isprism=False)
