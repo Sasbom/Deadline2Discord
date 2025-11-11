@@ -1450,7 +1450,7 @@ async def unlock_project_channel(interaction: discord.Interaction, project: str)
 
 
 @project_group.command(name="subscribe", description="Subscribe to a project channel")
-async def user_join_prismproject(interaction: discord.Interaction, project: str):
+async def user_join_project(interaction: discord.Interaction, project: str):
     project = project.strip()  # normalize name
     user = interaction.user.name
     if not get_user_pingable(user):
@@ -1483,7 +1483,7 @@ async def user_join_prismproject(interaction: discord.Interaction, project: str)
 
 
 @project_group.command(name="unsubscribe", description="Unsubscribe from a project channel")
-async def user_leave_prismproject(interaction: discord.Interaction, project: str):
+async def user_leave_project(interaction: discord.Interaction, project: str):
     project = project.strip()  # normalize name
     user = interaction.user.name
     p = pg.get_group(DB, project, isprism=False)
@@ -1543,7 +1543,7 @@ async def project_channel_help(
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-project_group = app_commands.Group(name="channel", description="Project channels for collecting users & subscribing to.")
+
 
 
 calc_group = app_commands.Group(name="calculate", description="Calculate things!")
