@@ -1429,7 +1429,7 @@ async def unlock_project_channel(interaction: discord.Interaction, project: str)
     project = project.strip()  # normalize name
     user = interaction.user.name
     is_admin = interaction.user.guild_permissions.administrator
-    p = pg.get_group(DB, project, prism=False)
+    p = pg.get_group(DB, project, isprism=False)
     if p is not None and (user in p.owners or is_admin):
         p.locked = False
         pg.update_group(DB, p)
@@ -1508,6 +1508,42 @@ async def user_leave_prismproject(interaction: discord.Interaction, project: str
             f"Register project channel `{project}` before subscribing to it!",
             ephemeral=True,
         )
+
+
+@project_group.command(
+    name="help",
+    description="Help page for /channel commands, also availale in dutch with nederlands = True",
+)
+async def project_channel_help(
+    interaction: discord.Interaction, nederlands: Optional[bool] = False
+):
+    if not nederlands:
+        help_txt = "**All /channel commands, explained.**\n\n\
+                    **When submitting a render, add `project:<project channel name>` to the \"ping users\" box.**\
+                    **/channel register:** Register a project channel with you as the owner.\n\
+                    **/channel deregister:** If you are the owner of a project channel, deregister it\n\n\
+                    **/channel subscribe:** Subscribe to a project channel. If you are in this list, any completed job within the project will ping you.\n\
+                    **/channel unsubscribe:** Unsubscribe from a project. No more pings!\n\n\
+                    **/channel lock:** Locks a project channels from getting new subscribers. Can only be done if you own the project.\n\
+                    **/channel unlock:** Unlocks a project channels, allowing subscribers again. Can only be done if you own the project.\n\n\
+                    **/channel list:** List all registered project channels."
+    else:
+        help_txt = "**Alle /channel commands, uitgelegd.**\n\n\
+                    **Bij het submitten van een render, voeg `project:<project channel name>` toe aan het \"ping users\" veld.**\
+                    **/channel register:** Registreer een project kanaal, met jou als eigenaar.\n\
+                    **/channel deregister:**Als je de eigenaar bent van een project kanaal, haal 'm uit het systeem.\n\n\
+                    **/channel subscribe:** Meld je aan om gepingt te worden voor alle renders uit dit project kanaal.\n\
+                    **/channel unsubscribe:** Meld je af van een project kanaal. Geen pings meer!\n\n\
+                    **/channel lock:** Zet een project kanaal op slot. Als je de eigenaar bent, voorkom je zo ongewenste registraties.\n\
+                    **/channel unlock:** Haal een project kanaal van slot. Als je de eigenaar bent, kan je zo mensen weer de optie geven om aan te melden.\n\n\
+                    **/channel list:** Laat alle geregistreerde project kanaal zien!"
+    embed = discord.Embed(
+        title="Prism help", color=DEADLINE_ORANGE, description=help_txt
+    )
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+project_group = app_commands.Group(name="channel", description="Project channels for collecting users & subscribing to.")
 
 
 calc_group = app_commands.Group(name="calculate", description="Calculate things!")
