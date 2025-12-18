@@ -234,7 +234,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             data_dict = {k: v[0] for k, v in data_dict.items()}  # get first of all.
 
-            owner_list_raw = [o.strip() for o in data_dict["ping"].split(",")]
+            owner_list_raw = [o.strip() for o in data_dict.get("ping","").split(",")]
             owner_list = list()
             #print(job_group_id)
             has_group = False

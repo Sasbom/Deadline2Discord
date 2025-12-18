@@ -192,7 +192,7 @@ def compose_resultembed(
     user_id = None
     tag_message = None
     if "ping" in data_dict.keys():
-        if names := data_dict["ping"]:
+        if names := data_dict.get("ping",""):
             # set comprehension for unique names
             name_list = {n.strip() for n in names.split(",")}
             user_ids: list[pg.bot_user] = []
